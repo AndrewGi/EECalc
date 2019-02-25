@@ -23,7 +23,7 @@ namespace EECalc {
 			using P = std::unique_ptr<Constant>;
 		};
 		typename Constant::P evalute(Value& value) {
-			return Constant(value.as_real(), value.unit);
+			return std::make_unique<Constant>(value.as_real(), value.unit);
 		}
 		struct BinaryOperation : Value {
 
@@ -72,6 +72,15 @@ namespace EECalc {
 				}
 			}
 		};
+		typename Value::P make_operation(Value::P left, BinaryOperation::Operator operation, Value::P right) {
+			std::unique_ptr<BinaryOperation> op = std::make_unique<BinaryOperation>(std::move(left), operation, std::move(right));
+			if (typeid(*(op.left.get())) == typeid(Constant)
+				&& typeid(*(op.right.get())) == typeid(Consant)) {
+				//Both operators are constant so we can optimze away the expression
+				return evalute(*op);
+			}
+			return op;
+		}
 		struct UnaryOperation : Value {
 			enum class Operator {
 				Negate,
@@ -95,5 +104,13 @@ namespace EECalc {
 				}
 			}
 		};
+		typename Value::P make_operation(UnaryOperation::Operator operation, Value::P operand) {
+			std::unqiue_ptr<UnaryOperation> op = std::make_unique<UnaryOperation>(operation, std::move(operand));
+			if (typeid(*(op.operand.get())) == typeid(Constant)) {
+				//Constant operand so lets optimze the operator away
+				return evalute(*op);
+			}
+			return op;
+		}
 	};
 }
