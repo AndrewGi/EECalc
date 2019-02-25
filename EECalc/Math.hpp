@@ -27,7 +27,13 @@ namespace EECalc {
 		}
 		struct BinaryOperation : Value {
 
-			static Unit get_unit(const Value& left, const Value& right) {
+			enum class Operator {
+				Add,
+				Subtract,
+				Multiply,
+				Divide,
+			};
+			static Unit get_unit(const Value& left, Operator operation, const Value& right) {
 				switch (operation) {
 				case Operator::Add:
 				case Operator::Subtract:
@@ -43,18 +49,12 @@ namespace EECalc {
 
 				}
 			}
-			enum class Operator {
-				Add,
-				Subtract,
-				Multiply,
-				Divide,
-			};
 			Value::P left;
 			Value::P right;
 			const Operator operation;
 			BinaryOperation(Value::P left, Operator operation, Value::P right) :
 				left(std::move(left)), right(std::move(right)), operation(operation),
-				Value(get_unit(*left, *right)) {
+				Value(get_unit(*left, operation, *right)) {
 				
 			}
 			Real as_real() {
