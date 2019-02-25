@@ -112,5 +112,32 @@ namespace EECalc {
 			}
 			return op;
 		}
+		struct Parser {
+			std::vector<std::variant<Value::P, Parser::Token>> tokens;
+			using Iterator = decltype(tokens)::iterator;
+			Parser(decltype(tokens) tokens) : tokens(std::move(tokens)) {}
+			Value::P reduce(Iterator i) {
+				if (std::holds_alternative<Value::P>(*i))
+					throw std::invalid_argument("reduce called on Value type");
+
+				Parser::tokens tok = std::get<Parser::Token>(*i);
+				std::visit([&](const auto& val) {
+					using T = decltype(val);
+					if constexpr(std::is_same_v<double, T>) {
+						Parser::tokens next_tok = std::get<Parser::Token>(*(i + 1));
+						if (std::holds_alternative<Unit>(next_tok)) {
+							//We have (DOUBLE UNIT) so lets make a const
+							auto out = std::make_unique<Constant>(val, std::get<Unit>(next_tok));
+							//TODO: FINISH
+						}
+						else {
+							//Otherwise we just have a scalar
+							return 
+						}
+					}
+				}, tok);
+			}
+			}
+		};
 	};
 }

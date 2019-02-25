@@ -4,6 +4,7 @@
 #include <vector>
 #include <variant>
 #include <charconv>
+#include <string_view>
 
 using namespace std::string_literals;
 
@@ -48,7 +49,7 @@ namespace EECalc {
 			throw std::invalid_argument("unrecognized operator");
 			
 		}
-		using Token = std::variant<double, Operator, std::string_view, Unit::BaseUnit>;
+		using Token = std::variant<double, Operator, std::string_view, Unit>;
 	private:
 		std::vector<Tokenizer::Token> tokens;
 		size_t position = 0;
