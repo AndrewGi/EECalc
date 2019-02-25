@@ -22,7 +22,7 @@ namespace EECalc {
 			Constant(Real value, Unit unit = Unit::BaseUnit::Scalar) : Value(unit) {}
 			using P = std::unique_ptr<Constant>;
 		};
-		typename Constant::P evalute(Value& value) {
+		static typename Constant::P evalute(Value& value) {
 			return std::make_unique<Constant>(value.as_real(), value.unit);
 		}
 		struct BinaryOperation : Value {
@@ -72,7 +72,7 @@ namespace EECalc {
 				}
 			}
 		};
-		typename Value::P make_operation(Value::P left, BinaryOperation::Operator operation, Value::P right) {
+		static typename Value::P make_operation(Value::P left, BinaryOperation::Operator operation, Value::P right) {
 			std::unique_ptr<BinaryOperation> op = std::make_unique<BinaryOperation>(std::move(left), operation, std::move(right));
 			if (typeid(*(op.left.get())) == typeid(Constant)
 				&& typeid(*(op.right.get())) == typeid(Consant)) {
@@ -104,7 +104,7 @@ namespace EECalc {
 				}
 			}
 		};
-		typename Value::P make_operation(UnaryOperation::Operator operation, Value::P operand) {
+		static typename Value::P make_operation(UnaryOperation::Operator operation, Value::P operand) {
 			std::unqiue_ptr<UnaryOperation> op = std::make_unique<UnaryOperation>(operation, std::move(operand));
 			if (typeid(*(op.operand.get())) == typeid(Constant)) {
 				//Constant operand so lets optimze the operator away
