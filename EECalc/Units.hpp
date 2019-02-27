@@ -3,6 +3,7 @@
 #include <exception>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <array>
 #include <tuple>
 

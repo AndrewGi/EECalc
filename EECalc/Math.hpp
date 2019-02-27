@@ -49,10 +49,10 @@ namespace EECalc {
 
 				}
 			}
-			Value::P left;
-			Value::P right;
+			typename Value::P left;
+			typename Value::P right;
 			const Operator operation;
-			BinaryOperation(Value::P left, Operator operation, Value::P right) :
+			BinaryOperation(typename Value::P left, Operator operation, typename Value::P right) :
 				left(std::move(left)), right(std::move(right)), operation(operation),
 				Value(get_unit(*left, operation, *right)) {
 				
@@ -72,10 +72,10 @@ namespace EECalc {
 				}
 			}
 		};
-		static typename Value::P make_operation(Value::P left, BinaryOperation::Operator operation, Value::P right) {
+		static typename Value::P make_operation(typename Value::P left, typename BinaryOperation::Operator operation, typename Value::P right) {
 			std::unique_ptr<BinaryOperation> op = std::make_unique<BinaryOperation>(std::move(left), operation, std::move(right));
 			if (typeid(*(op.left.get())) == typeid(Constant)
-				&& typeid(*(op.right.get())) == typeid(Consant)) {
+				&& typeid(*(op.right.get())) == typeid(Constant)) {
 				//Both operators are constant so we can optimze away the expression
 				return evalute(*op);
 			}
@@ -104,40 +104,68 @@ namespace EECalc {
 				}
 			}
 		};
-		static typename Value::P make_operation(UnaryOperation::Operator operation, Value::P operand) {
-			std::unqiue_ptr<UnaryOperation> op = std::make_unique<UnaryOperation>(operation, std::move(operand));
+		static typename Value::P make_operation(typename UnaryOperation::Operator operation, typename Value::P operand) {
+			std::unique_ptr<UnaryOperation> op = std::make_unique<UnaryOperation>(operation, std::move(operand));
 			if (typeid(*(op.operand.get())) == typeid(Constant)) {
 				//Constant operand so lets optimze the operator away
 				return evalute(*op);
 			}
 			return op;
 		}
-		struct Parser {
-			std::vector<std::variant<Value::P, Parser::Token>> tokens;
-			using Iterator = decltype(tokens)::iterator;
-			Parser(decltype(tokens) tokens) : tokens(std::move(tokens)) {}
-			Value::P reduce(Iterator i) {
-				if (std::holds_alternative<Value::P>(*i))
+		class Builder {
+		public:
+			using Iterator = typename decltype(tokens)::iterator;
+			Builder(decltype(tokens) tokens) : tokens(std::move(tokens)) {}
+		private:
+			std::vector<std::variant<typename Value::P, typename Parser::Token>> tokens;
+			template<class TokenT, class CallableT>
+			void for_each_token(CallableT callable) {
+				for (auto i = tokens.begin(); i < tokens.end(); i++) {
+					if (std::holds_alternative<typename Parser::Token>(*i)) {
+						std::visit([&](const auto& val) {
+							if constexpr (std::is_same_v<TokenT>, decltype(val) > )
+								callable(i);
+						}, i);
+					}
+				}
+			};
+			void reduce(const Iterator i) {
+				if (std::holds_alternative<typename Value::P>(*i))
 					throw std::invalid_argument("reduce called on Value type");
 
-				Parser::tokens tok = std::get<Parser::Token>(*i);
+				typename Parser::tokens tok = std::get<typename Parser::Token>(*i);
 				std::visit([&](const auto& val) {
 					using T = decltype(val);
-					if constexpr(std::is_same_v<double, T>) {
-						Parser::tokens next_tok = std::get<Parser::Token>(*(i + 1));
+					if constexpr (std::is_same_v<double, T>) { //TOK == double
+						typename Parser::tokens next_tok = std::get<Parser::Token>(*(i + 1));
 						if (std::holds_alternative<Unit>(next_tok)) {
 							//We have (DOUBLE UNIT) so lets make a const
-							auto out = std::make_unique<Constant>(val, std::get<Unit>(next_tok));
-							//TODO: FINISH
+							*i = std::make_unique<Constant>(val, std::get<Unit>(next_tok));
+							tokens.erase(i + 1); //Erase the Unit
+							return;
 						}
-						else {
-							//Otherwise we just have a scalar
-							return 
-						}
+						//Otherwise we just have a scalar
+						*i = std::make_unique<Constant>(val);
+						return;
+					}
+
+					if constexpr (std::is_same_v<Unit, T>) { //TOK == Unit
+
+					}
+
+					if constexpr (std::is_same_v<Parser::Operator, T>) { //TOK == Operator
+
 					}
 				}, tok);
+				return;
 			}
+		public:
+			void parse() {
+				for_each_token<Parser::Operator
 			}
+		}
+		private:
+			
 		};
 	};
 }
