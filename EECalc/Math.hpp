@@ -1,15 +1,23 @@
 #pragma once
-#include "Parser.hpp"
 #include <memory>
+#include <map>
 namespace EECalc {
 
-	using default_real_t = double;
-	template<typename Real = default_real_t>
+	using default_real_t = double; 
+	template<typename Real = default_real_t> //Might change from a template to just a 'using Real =' statement?
 	class Math {
 	public:
 		struct Value {
+			struct UnassignedException : std::invalid_argument{
+				UnassignedException(Real attempted_real) : std::invalid_argument(
+					std::string("attempted to assign '") + std::to_string(attempted_real) + "' to an unassignable"
+				) {}
+			};
 			const Unit unit;
 			virtual Real as_real() = 0;
+			virtual void set_real_value(Real r) { //Override this if the value is Assignedable (ex: mutable variables)
+				throw UnassignedException(r); 
+			};
 			Value(const Unit& uint) : unit(unit) {}
 			Value() : Value(Unit::BaseUnit::Scalar) {}
 			using P = std::unique_ptr<Value>;
@@ -32,9 +40,11 @@ namespace EECalc {
 				Subtract,
 				Multiply,
 				Divide,
+				UpdateAssignable,
 			};
 			static Unit get_unit(const Value& left, Operator operation, const Value& right) {
 				switch (operation) {
+				case Operator::UpdateAssignable:
 				case Operator::Add:
 				case Operator::Subtract:
 					if (left.unit == right.unit)
@@ -44,6 +54,7 @@ namespace EECalc {
 					return left.unit * right.unit;
 				case Operator::Divide:
 					return left.unit / right.unit;
+					
 				default:
 					throw std::invalid_argument("unrecognized operator");
 
@@ -67,6 +78,9 @@ namespace EECalc {
 					return left->as_real() * right->as_real();
 				case Operator::Divide:
 					return left->as_real() / right->as_real();
+				case Operator::UpdateAssignable: // Calling as_real for Operator::UpdateAssignable can and will cause mutations to variables
+					left->set_real_value(right->as_real());
+					return left;
 				default:
 					throw std::logic_error("invalid operator");
 				}
@@ -104,6 +118,7 @@ namespace EECalc {
 				}
 			}
 		};
+
 		static typename Value::P make_operation(typename UnaryOperation::Operator operation, typename Value::P operand) {
 			std::unique_ptr<UnaryOperation> op = std::make_unique<UnaryOperation>(operation, std::move(operand));
 			if (typeid(*(op.operand.get())) == typeid(Constant)) {
@@ -112,60 +127,42 @@ namespace EECalc {
 			}
 			return op;
 		}
-		class Builder {
-		public:
-			using Iterator = typename decltype(tokens)::iterator;
-			Builder(decltype(tokens) tokens) : tokens(std::move(tokens)) {}
-		private:
-			std::vector<std::variant<typename Value::P, typename Parser::Token>> tokens;
-			template<class TokenT, class CallableT>
-			void for_each_token(CallableT callable) {
-				for (auto i = tokens.begin(); i < tokens.end(); i++) {
-					if (std::holds_alternative<typename Parser::Token>(*i)) {
-						std::visit([&](const auto& val) {
-							if constexpr (std::is_same_v<TokenT>, decltype(val) > )
-								callable(i);
-						}, i);
-					}
+		/**
+			Use proxy class 'Variable' instead of directly calling VariableBank methods
+		*/
+		struct VariableBank {
+			struct UndefinedVariable : std::logic_error {
+				UndefinedVariable(std::string variable_name) : std::logic_error(std::string("undefined variable : ") + variable_name) {}
+			}
+			struct VariableEntry {
+				const Unit unit;
+				Real value;
+				VariableEntry& operator=(typename Value::P& new_value) {
+					unit = new_value;
+					value = new_value.as_real();
 				}
-			};
-			void reduce(const Iterator i) {
-				if (std::holds_alternative<typename Value::P>(*i))
-					throw std::invalid_argument("reduce called on Value type");
-
-				typename Parser::tokens tok = std::get<typename Parser::Token>(*i);
-				std::visit([&](const auto& val) {
-					using T = decltype(val);
-					if constexpr (std::is_same_v<double, T>) { //TOK == double
-						typename Parser::tokens next_tok = std::get<Parser::Token>(*(i + 1));
-						if (std::holds_alternative<Unit>(next_tok)) {
-							//We have (DOUBLE UNIT) so lets make a const
-							*i = std::make_unique<Constant>(val, std::get<Unit>(next_tok));
-							tokens.erase(i + 1); //Erase the Unit
-							return;
-						}
-						//Otherwise we just have a scalar
-						*i = std::make_unique<Constant>(val);
-						return;
-					}
-
-					if constexpr (std::is_same_v<Unit, T>) { //TOK == Unit
-
-					}
-
-					if constexpr (std::is_same_v<Parser::Operator, T>) { //TOK == Operator
-
-					}
-				}, tok);
-				return;
 			}
-		public:
-			void parse() {
-				for_each_token<Parser::Operator
+			std::map<std::string, VariableEntry, std::less<>> vars;
+			VariableEntry& get(std::string_view name) {
+				if (auto& var_i = vars.find(name); i != vars.end())
+					return *var_i;
+				throw UndefinedVariable(name);
 			}
-		}
-		private:
-			
+			void update(std::string_view name, typename Value::P& new_value) {
+				
+			}
 		};
+		struct Variable : Value {
+			const std::string_view name;
+			typename VariableBank::VariableEntry& owner_entry;
+			Variable(std::string_view name, VariableBank& bank) : name(name), owner_entry(bank.get(name))
+			Real as_real() {
+				return owner_entry.value;
+			}
+		};
+		std::unique<Variable> make_variable(std::string_view name, VariableBank& bank) {
+			return std::make_unique<Variable>(name, bank);
+		}
+		
 	};
 }

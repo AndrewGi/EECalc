@@ -1,10 +1,11 @@
 #pragma once
-#include "Tokenizer.hpp"
-#include "Units.hpp"
 #include <vector>
 #include <variant>
 #include <charconv>
 #include <string_view>
+#include "Math.hpp"
+#include "Tokenizer.hpp"
+#include "Units.hpp"
 
 using namespace std::string_literals;
 
@@ -49,7 +50,7 @@ namespace EECalc {
 			throw std::invalid_argument("unrecognized operator");
 			
 		}
-		using Token = std::variant<double, Operator, std::string_view, Unit>;
+		using Token = std::variant<Math<>::Value::P, Operator, std::string_view>;
 	private:
 		std::vector<Tokenizer::Token> tokens;
 		size_t position = 0;
@@ -91,11 +92,9 @@ namespace EECalc {
 					double real_value = NAN;
 					if (std::from_chars(content.data(), content.data() + content.length(), real_value).ec == std::errc::invalid_argument)
 						throw Unexpected("unrecognized number", current_tok);
-					return real_value;
-				}
-				case TTToken::WORD: {
+
 					//Check for unit
-					auto [base_unit, is_more] = Unit::find_unit(content, 0);
+					auto[base_unit, is_more] = Unit::find_unit(content, 0);
 					if (base_unit == Unit::BaseUnit::Null) {
 						//We matched no unit so treat it as a variable
 						return content;
@@ -103,7 +102,7 @@ namespace EECalc {
 					size_t search_position_count = content.length();
 					while (is_more) {
 						const auto next_token = peek(); //Peek next token
-						const auto [new_unit, even_more] = Unit::find_unit(next_token.content, search_position_count);
+						const auto[new_unit, even_more] = Unit::find_unit(next_token.content, search_position_count);
 						is_more = even_more;
 						if (new_unit != Unit::BaseUnit::Null) { //We captured something
 							base_unit = new_unit;
@@ -111,6 +110,11 @@ namespace EECalc {
 							search_position_count += next_token.content.length();
 						}
 					}
+					return real_value;
+				}
+				case TTToken::WORD: {
+					//Check for unit
+					
 					return base_unit;
 				}
 
