@@ -50,9 +50,17 @@ namespace EECalc {
 			throw std::invalid_argument("unrecognized operator");
 			
 		}
-		using Token = std::variant<Math<>::Value::P, Operator, std::string_view>;
+		struct Group; //Parathesis
+		using Token = std::variant< Math<>::Value::P, Operator, std::string_view, std::unique_ptr<Group> >;
+
+		struct Group {
+			std::vector<Token> tokens;
+			void add_token(Token tok) {
+				tokens.emplace_back(std::move(tok));
+			}
+		}
 	private:
-		std::vector<Tokenizer::Token> tokens;
+		std::vector<typename Tokenizer::Token> tokens;
 		size_t position = 0;
 		const Tokenizer::Token& next() {
 			if (position == tokens.size())

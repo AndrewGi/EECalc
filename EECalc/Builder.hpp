@@ -4,12 +4,13 @@
 
 namespace EECalc {
 	class Builder {
+		using Math = EECalc::Math<>;
 	public:
-		std::vector<std::variant<typename Math<>::Value, typename Parser::Token>> tokens;
+		std::vector<std::variant<typename Math::Value, typename Parser::Token>> tokens;
 		using Iterator = typename decltype(tokens)::iterator;
 		Builder(decltype(tokens) tokens) : tokens(std::move(tokens)) {}
 	private:
-		std::vector<std::variant<typename Value::P, typename Parser::Token>> tokens;
+		std::vector<std::variant<typename Math::Value::P, typename Parser::Token>> tokens;
 		template<class TokenT, class CallableT>
 		void for_each_token(CallableT callable) {
 			for (auto i = tokens.begin(); i < tokens.end(); i++) {
@@ -22,10 +23,10 @@ namespace EECalc {
 			}
 		};
 		Iterator reduce(const Iterator i) {
-			if (std::holds_alternative<typename Value::P>(*i))
+			if (std::holds_alternative<typename Math::Value::P>(*i))
 				throw std::invalid_argument("reduce called on Value type");
 
-			typename Parser::tokens tok = std::get<typename Parser::Token>(*i);
+			typename Parser::Token& tok = std::get<typename Parser::Token>(*i);
 			std::visit([&](const auto& val) {
 				using T = decltype(val);
 				if constexpr (std::is_same_v<double, T>) { //TOK == double
@@ -53,10 +54,7 @@ namespace EECalc {
 		}
 	public:
 		void parse() {
-			for_each_token<double>([&](Iterator i) {
-				reduce(i);
-			});
-			for_each_token<Operator>([&](Iterator i) {
+			for_each_token<Math::BinaryOperator::Operator>([&](Iterator i) {
 				if (*i == Parser::Operator::Add
 			}
 		}

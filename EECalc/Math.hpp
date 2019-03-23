@@ -133,7 +133,7 @@ namespace EECalc {
 		struct VariableBank {
 			struct UndefinedVariable : std::logic_error {
 				UndefinedVariable(std::string variable_name) : std::logic_error(std::string("undefined variable : ") + variable_name) {}
-			}
+			};
 			struct VariableEntry {
 				const Unit unit;
 				Real value;
