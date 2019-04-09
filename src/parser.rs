@@ -6,27 +6,6 @@ use crate::parser::BaseUnit::Scalar;
 pub struct Parser<'a> {
 	scanner: Scanner<'a>
 }
-#[derive(Clone)]
-pub enum BaseUnit {
-	Scalar,
-	Meter,
-	Watt,
-	Gram,
-	Amp,
-	Volt,
-	Newton,
-	Second,
-	Ohm,
-	Joule
-}
-pub enum Number {
-	Int(i32),
-	Float(f32)
-}
-pub struct Value {
-	number: Number,
-	unit: BaseUnit,
-}
 pub enum Operator {
 	Add,
 	Subtract,
@@ -36,22 +15,6 @@ pub enum Operator {
 }
 use std::fmt;
 
-impl fmt::Display for BaseUnit {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		use BaseUnit::*;
-		write!(f, "{}", match *self {
-			Scalar => "_",
-			Gram => "g",
-			Watt => "w",
-			Meter => "m",
-			Amp => "a",
-			Second => "s",
-			Volt => "v",
-			Ohm => "r",
-			Joule => "j",
-		})
-	}
-}
 impl fmt::Display for Operator {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", match *self {
@@ -61,19 +24,6 @@ impl fmt::Display for Operator {
 			Operator::Divide => "/",
 			Operator::Assignment => "="
 		})
-	}
-}
-impl fmt::Display for Number {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			Int(int) => write!(f, "{}", int),
-			Float(float) => write!(f, "{}", float)
-		}
-	}
-}
-impl fmt::Display for Value {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{}{}", self.number, self.unit)
 	}
 }
 

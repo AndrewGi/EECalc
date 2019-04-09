@@ -1,7 +1,8 @@
 
+#[derive(Eq)]
 pub struct Unit {
 	meter: i32,
-	gram: i32,
+	kilogram: i32,
 	second: i32,
 	ampere: i32,
 	kelvin: i32,
@@ -15,8 +16,8 @@ impl fmt::Display for Unit {
 		if self.meter != 0 {
 			write!(f, "m{}", self.meter);
 		}
-		if self.gram != 0 {
-			write!(f, "g{}", self.gram);
+		if self.kilogram != 0 {
+			write!(f, "g{}", self.kilogram);
 		}
 		if self.second != 0 {
 			write!(f, "s{}", self.second);
@@ -40,7 +41,7 @@ impl Unit {
 	pub fn multiply(&self, other: &Unit) -> Unit {
 		Unit {
 			meter: self.meter + other.meter,
-			gram: self.gram + other.gram,
+			kilogram: self.kilogram + other.kilogram,
 			second: self.second + other.second,
 			ampere: self.ampere + other.ampere,
 			kelvin: self.kelvin + other.kelvin,
@@ -51,7 +52,7 @@ impl Unit {
 	pub fn invert(&self) -> Unit {
 		Unit {
 			meter: -self.meter,
-			gram: -self.gram,
+			kilogram: -self.kilogram,
 			second: -self.second,
 			ampere: -self.ampere,
 			kelvin: -self.kelvin,
@@ -62,8 +63,46 @@ impl Unit {
 	pub fn divide(&self, other: &Unit) -> Unit {
 		self.mulitply(other.invert())
 	}
+	pub fn new(number: f32, unit: &Unit) -> Value {
+		Value {unit: unit, value: number}
+	}
 }
+#[derive(Eq, Clone)]
 pub struct Value {
 	unit: BaseUnit,
 	value: f32
 }
+impl Value {
+	pub fn add(&self, other: &Value) -> Option<Value> {
+		if self != other { return None }
+		Value::new(self.value+other.value, self.unit)
+	}
+	pub fn negate(&self) -> Value {
+		Value::new(-self.value, self.unit)
+	}
+	pub fn subtract(&self, other: &Value) -> Option<Value> {
+		if let Some(v) = other.negate() {
+			return self.add(v);
+		}
+		None
+	}
+	pub fn multiply(&self, other: &Value) -> Value {
+		Value::new(self.value*other.value, self.unit.multiply(other.unit))
+	}
+	pub fn invert(&self) -> Value {
+		Value::new(self.value.recip(), self.unit.invert())
+	}
+	pub fn divide(&self, other: &Value) -> Value {
+		self.multiply(other.invert())
+	}
+}
+static Meter: (Unit, &str) = (Unit { meter: 1, kilogram: 0, second: 0, ampere: 0, kelvin: 0, mole: 0, candela: 0 }, "m");
+static Kilogram: Unit = Unit { meter: 0, kilogram: 1, second: 0, ampere: 0, kelvin: 0, mole: 0, candela: 0 };
+static Second: Unit = Unit { meter: 0, kilogram: 0, second: 1, ampere: 0, kelvin: 0, mole: 0, candela: 0 };
+static Ampere: Unit = Unit { meter: 0, kilogram: 0, second: 0, ampere: 1, kelvin: 0, mole: 0, candela: 0 };
+static Kelvin: Unit = Unit { meter: 0, kilogram: 0, second: 0, ampere: 0, kelvin: 1, mole: 0, candela: 0 };
+static Mole: Unit = Unit { meter: 0, kilogram: 0, second: 0, ampere: 0, kelvin: 0, mole: 1, candela: 0 };
+static Candela: Unit = Unit { meter: 0, kilogram: 0, second: 0, ampere: 0, kelvin: 0, mole: 0, candela: 1 };
+static Ohm: (Unit, &str) = (Ampere.divide(Volt), "v");
+static Colomb: (Unit, &str) = (Ampere.mulitply(Second), "C");
+
