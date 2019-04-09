@@ -1,18 +1,12 @@
 use std::str::Chars;
 use std::iter::Peekable;
 
-struct Cursor<'a> {
+#[derive(Clone)]
+pub struct Cursor<'a> {
 	start: Peekable<Chars<'a>>,
 	iter: Peekable<Chars<'a>>,
 	size: usize,
 }
-
-enum CharType {
-	Digit,
-	Alphabet,
-	Whitespace,
-}
-
 impl<'a> Cursor<'a> {
 	pub fn peek(&mut self) -> char {
 		match self.iter.peek() {
@@ -77,12 +71,16 @@ pub struct Scanner<'a> {
 }
 
 impl<'a> Scanner<'a> {
-	fn get_cursor(&self) -> Cursor<'a> {
+	pub fn get_cursor(&mut self) -> Cursor<'a> {
+		while *self.position.peek().unwrap_or(&'\u{0}') == ' ' {
+			self.position.next();
+		}
 		Cursor {
 			start: self.position.clone(),
 			iter: self.position.clone(),
 			size: 0,
 		}
+
 	}
 	fn apply(&mut self, cursor: &Cursor<'a>) {
 		self.position = cursor.iter.clone();
@@ -125,19 +123,19 @@ impl<'a> Scanner<'a> {
 			'-' => true,
 			'*' => true,
 			'/' => true,
-			'(' => true,
-			')' => true,
+			//'(' => true,
+			//')' => true,
 			'=' => true,
-			'>' => true,
-			'<' => true,
+			//'>' => true,
+			//'<' => true,
 			_ => false
 		};
 		if !is_operator {
 			return None
 		}
-		c.next();
+		let op = c.next();
 		self.apply(&c);
-		Some(c.content().chars().next().unwrap())
+		Some(op)
 	}
 	pub fn new(input: &'a str) -> Scanner<'a> {
 		Scanner {
