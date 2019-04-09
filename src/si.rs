@@ -93,13 +93,47 @@ impl Value {
 		Value::new(self.value.recip(), self.unit.invert())
 	}
 	pub fn divide(&self, other: &Value) -> Value {
-		self.multiply(other.invert())
+		self.multiply(&other.invert())
 	}
 }
-static Meter: (Unit, &str) = (Unit { meter: 1, kilogram: 0, second: 0, ampere: 0, kelvin: 0, mole: 0, candela: 0 }, "m");
-static Kilogram: Unit = Unit { meter: 0, kilogram: 1, second: 0, ampere: 0, kelvin: 0, mole: 0, candela: 0 };
+struct UnitInfo {
+	shorthand: &'static str,
+	longhand: &'static str,
+}
+impl UnitInfo {
+	pub fn new(shorthand: &'static str, longhand: &'static str) -> UnitInfo {
+		UnitInfo{ shorthand: shorthand, longhand: longhand}
+	}
+}
+static Meter: (Unit, &str) =
+
+static Kilogram: Unit =
 static Second: Unit = Unit { meter: 0, kilogram: 0, second: 1, ampere: 0, kelvin: 0, mole: 0, candela: 0 };
 static Ampere: Unit = Unit { meter: 0, kilogram: 0, second: 0, ampere: 1, kelvin: 0, mole: 0, candela: 0 };
+static UNITS: HashMap<Unit, UnitInfo> = {
+	let mut longhand_hm = HashMap::new();
+	let mut shorthand_hm = HashMap::new();
+	let mut unit_hm = HashMap::new();
+	fn new_unit(longhand: &'static str, shorthand: &'static str, unit: &Unit) {
+		longhand_hm.insert(longhand, (shorthand: shorthand, unit: unit));
+		shorthand_hm.insert(shorthand, ())
+	}
+	let scalar =  Unit { meter: 0, kilogram: 0, second: 0, ampere: 0, kelvin: 0, mole: 0, candela: 0 };
+	Unit { meter: 1, kilogram: 0, second: 0, ampere: 0 }
+	Unit { meter: 0, kilogram: 1, second: 0, ampere: 0 }
+	Unit { meter: 0, kilogram: 0, second: 1, ampere: 0 }
+	Unit { meter: 0, kilogram: 0, second: 0, ampere: 1 }
+	Unit { meter: 0, kilogram: 0, second: 0, ampere: 0, kelvin: 1 }
+	Unit { meter: 0, kilogram: 0, second: 0, ampere: 0, kelvin: 0, mole: 1 }
+	Unit { meter: 0, kilogram: 0, second: 0, ampere: 0, kelvin: 0, mole: 0, candela: 1 }
+	m.insert(, UnitInfo::new("m", "meters"));
+	m.insert(, UnitInfo::new("kg", "kilograms"));
+	m.insert(, UnitInfo::new("s", "seconds"));
+	m.insert(, UnitInfo::new("a", "amps"));
+	m.insert(, UnitInfo::new("k", "kilogram"));
+	m.insert(, UnitInfo::new("mol", "moles"));
+	m.insert(, UnitInfo::new("cd", "cadelas"));
+};
 static Kelvin: Unit = Unit { meter: 0, kilogram: 0, second: 0, ampere: 0, kelvin: 1, mole: 0, candela: 0 };
 static Mole: Unit = Unit { meter: 0, kilogram: 0, second: 0, ampere: 0, kelvin: 0, mole: 1, candela: 0 };
 static Candela: Unit = Unit { meter: 0, kilogram: 0, second: 0, ampere: 0, kelvin: 0, mole: 0, candela: 1 };
