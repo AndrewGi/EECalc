@@ -1,6 +1,5 @@
 
 use crate::scanner::Scanner;
-use crate::parser::Number::{Int, Float};
 use crate::parser::BaseUnit::Scalar;
 
 pub struct Parser<'a> {
