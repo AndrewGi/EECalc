@@ -37,6 +37,15 @@ impl fmt::Display for Unit {
 		f
 	}
 }
+struct UnitScalar {
+	unit: Unit,
+	tenth_power: i32,
+}
+
+
+static mut longhand_hm: HashMap<&'static str, (&'static str, Unit)> = HashMap::new();
+static mut shorthand_hm: HashMap<&'static str, (&'static str, Unit)> = HashMap::new();
+static mut unit_hm: HashMap<Unit, (&'static str, &'static str)> = HashMap::new();
 
 impl Unit {
 	pub fn multiply(&self, other: &Unit) -> Unit {
@@ -64,15 +73,34 @@ impl Unit {
 	pub fn divide(&self, other: &Unit) -> Unit {
 		self.mulitply(other.invert())
 	}
-	pub fn new(number: f32, unit: &Unit) -> Value {
-		Value { unit: unit, value: number }
+	pub fn get_exponent_scalar(c: char) -> i32 {
+		match c {
+			'g' => 9,
+			'M' => 6,
+			'k' => 3,
+			'c' => -2,
+			'm' => -3,
+			'u' => -6,
+			'n' => -9,
+			'p' => -12,
+			'f' => -15,
+			'a' => -18,
+			_ => 0,
+		}
 	}
-
-	pub fn get_unit(name: &str) -> Option<Unit> {
-		
+	pub fn from_shorthand(s: &str) -> Option<Unit> {
+		shorthand_hm.get(s)
 	}
-
-	pub fn from_string(s: &str) -> Option<Unit> {
+	pub fn unit_and_scalar(s: &str) -> Option<(i32, Option<Unit>)> {
+		if s.length() == 0 {
+			return None
+		}
+		let c = s.chars().next().unwrap();
+		let scalar = Unit::get_exponent_scalar(c);
+		if s.length() == 1 && scalar != 0{
+			Some((scalar, None))
+		}
+		Some((scalar, Some(Unit::from_shorthand(if scalar == 0 {s} else {s[1..]})?)))
 
 	}
 }
@@ -84,6 +112,16 @@ pub struct Value {
 }
 
 impl Value {
+
+	pub fn new(number: f32, unit: &Unit) -> Value {
+		Value { unit, value: number }
+	}
+	pub fn from_str(s: &str) -> Option<Value> {
+		let unit_index = s.chars().position(|c| c.is_alphabetic());
+		let if unit_index.is_none() {
+			let Some(scalar, unit) =
+		}
+	}
 	pub fn add(&self, other: &Value) -> Option<Value> {
 		if self != other { return None; }
 		Value::new(self.value + other.value, self.unit)
@@ -108,21 +146,6 @@ impl Value {
 	}
 }
 
-struct UnitInfo {
-	shorthand: &'static str,
-	longhand: &'static str,
-}
-
-impl UnitInfo {
-	pub fn new(shorthand: &'static str, longhand: &'static str) -> UnitInfo {
-		UnitInfo { shorthand: shorthand, longhand: longhand }
-	}
-}
-
-
-static mut longhand_hm: HashMap<&'static str, (&'static str, Unit)> = HashMap::new();
-static mut shorthand_hm: HashMap<&'static str, (&'static str, Unit)> = HashMap::new();
-static mut unit_hm: HashMap<Unit, (&'static str, &'static str)> = HashMap::new();
 fn new_unit(longhand: &'static str, shorthand: &'static str, unit: Unit) {
 	longhand_hm.insert(longhand, (shorthand, unit.clone()));
 	shorthand_hm.insert(shorthand, (longhand, unit.clone()));
@@ -137,17 +160,17 @@ pub fn new_unit_rule(longhand: &'static str, shorthand: &'static str, rule: &str
 pub fn create_units() {
 
 	let scalar = Unit { meter: 0, gram: 0, second: 0, ampere: 0, kelvin: 0, mole: 0, candela: 0 };
-	new_baseunit("scalar", "_", scalar);
-	new_baseunit("meter", "m", Unit { meter: 1, ..scaler });
-	new_baseunit("gram", "g", Unit { gram: 1, ..scalar });
-	new_baseunit("second", "s", Unit { second: 1, ..scalar });
-	new_baseunit("ampere", "a", Unit { ampere: 1, ..scalar });
-	new_baseunit("kelvin", "k", Unit { kelvin: 1, ..scalar });
-	new_baseunit("mole", "mol", Unit { mole: 1, ..scalar });
-	new_baseunit("candela", "cd", Unit { candela: 1, ..scalar });
+	new_unit("scalar", "_", scalar);
+	new_unit("meter", "m", Unit { meter: 1, ..scaler });
+	new_unit("gram", "g", Unit { gram: 1, ..scalar });
+	new_unit("second", "s", Unit { second: 1, ..scalar });
+	new_unit("ampere", "a", Unit { ampere: 1, ..scalar });
+	new_unit("kelvin", "k", Unit { kelvin: 1, ..scalar });
+	new_unit("mole", "mol", Unit { mole: 1, ..scalar });
+	new_unit("candela", "cd", Unit { candela: 1, ..scalar });
 	new_unit_rule("newton", "n", "kg*m/s^2");
 	new_unit_rule("joule", "j", "n*m");
 	new_unit_rule("watt", "w", "j*s");
-	new_unit_rule("volt", "v", "w/v");
+	new_unit_rule("volt", "v", "w/a");
 }
 

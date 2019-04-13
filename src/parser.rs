@@ -27,18 +27,6 @@ impl fmt::Display for Operator {
 }
 
 pub fn which_unit(c: char) -> Option<BaseUnit> {
-	match c {
-		'm' => Some(BaseUnit::Meter),
-		'w' => Some(BaseUnit::Watt),
-		'g' => Some(BaseUnit::Gram),
-		'v' => Some(BaseUnit::Volt),
-		'a' => Some(BaseUnit::Amp),
-		's' => Some(BaseUnit::Second),
-		'r' => Some(BaseUnit::Ohm),
-		'j' => Some(BaseUnit::Joule),
-		'_' => Some(BaseUnit::Scalar),
-		_ => None
-	}
 }
 pub fn which_scalar(c: char) -> i32 {
 	match c {
