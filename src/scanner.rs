@@ -1,23 +1,19 @@
-use std::str::Chars;
+use std::str::CharIndices;
 use std::iter::Peekable;
 
 #[derive(Clone)]
 pub struct Cursor<'a> {
-	scanner: &'a Scanner<'a>,
-	iter: Peekable<Chars<'a>>,
-
-	size: usize,
+	iter: CharIndices<'a>,
 }
 impl<'a> Cursor<'a> {
 	pub fn peek(&mut self) -> char {
-		match self.iter.peek() {
-			Some(c) => *c,
+		match self.iter.peekable().peek() {
+			Some((s, c)) => *c,
 			None => char::from(0)
 		}
 	}
 	fn next(&mut self) -> char {
-		self.size += 1;
-		self.iter.next().expect("unexpected end of file")
+		let (index, c) = self.iter.next().expect("unexpected end of file");
 	}
 	fn maybe(&mut self, c: char) -> bool {
 		if self.peek() == c {
@@ -62,14 +58,14 @@ impl<'a> Cursor<'a> {
 		while self.maybe_alphanumeric() {}
 		return true;
 	}
-	fn content(self) -> &'a str {
-		self.scanner[position..]
+	fn content(&self) -> &'a str {
+		let s = self.iter.as_str();
+		s[..self.iter.clone().next().unwrap_or((s.len(), char::from(0))).1]
 	}
 }
 
 pub struct Scanner<'a> {
 	content: &'a str,
-	position: u32,
 }
 
 pub enum Token<'a> {
@@ -79,23 +75,20 @@ pub enum Token<'a> {
 	Operator(char)
 }
 impl<'a> Scanner<'a> {
-	fn iter() -> Peekable<Chars<'a>> {
-		content[position..].chars().clone()
+	fn iter() -> Peekable<CharIndices<'a>> {
+		content[position..].chars_indices().clone()
 	}
 	pub fn get_cursor(&mut self) -> Cursor<'a> {
 		while *self.position.peek().unwrap_or(&'\u{0}') == ' ' {
 			self.position.next();
 		}
 		Cursor {
-			start: self.iter(),
 			iter: self.iter(),
-			size: 0,
 		}
 
 	}
-	fn apply(&mut self, cursor: Cursor<'a>) {
+	fn apply(&mut self, cursor: &Cursor<'a>) {
 		self.position += cursor.size;
-		debug_assert!(self.position <= self.content.len())
 	}
 	pub fn next_int(&mut self) -> Option<i32> {
 		let mut c = self.get_cursor();
@@ -106,7 +99,7 @@ impl<'a> Scanner<'a> {
 		if c.peek() == '.' {
 			return None
 		}
-		self.apply(&c);
+		self.apply(c);
 		Some(c.content().parse().unwrap())
 	}
 	pub fn next_float(&mut self) -> Option<f64> {
@@ -152,6 +145,12 @@ impl<'a> Scanner<'a> {
 	pub fn next_token(&mut self) -> Option<Token> {
 		if let Some(word) = self.next_word() {
 			return Some(Token::Word(word));
+		}
+		if let Some(int) = self.next_int() {
+			return Some(Token::Integer(int)));
+		}
+		if let Some(float) = self.next_float() {
+			return Some(Token::)
 		}
 	}
 	pub fn new(input: &'a str) -> Scanner<'a> {
