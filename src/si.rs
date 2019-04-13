@@ -1,4 +1,5 @@
-#[derive(Eq)]
+
+#[derive(PartialEq, Eq, Clone, Hash)]
 pub struct Unit {
 	meter: i32,
 	gram: i32,
@@ -41,7 +42,7 @@ struct UnitScalar {
 	unit: Unit,
 	tenth_power: i32,
 }
-
+use std::collections::HashMap;
 
 static mut longhand_hm: HashMap<&'static str, (&'static str, Unit)> = HashMap::new();
 static mut shorthand_hm: HashMap<&'static str, (&'static str, Unit)> = HashMap::new();
@@ -89,7 +90,9 @@ impl Unit {
 		}
 	}
 	pub fn from_shorthand(s: &str) -> Option<Unit> {
-		shorthand_hm.get(s)
+		unsafe { //Reeks
+			shorthand_hm.get(s).clone();
+		}
 	}
 	pub fn unit_and_scalar(s: &str) -> Option<(i32, Option<Unit>)> {
 		if s.length() == 0 {
@@ -105,29 +108,33 @@ impl Unit {
 	}
 }
 
-#[derive(Eq, Clone)]
+#[derive(PartialEq, Eq, Clone)]
 pub struct Value {
-	unit: BaseUnit,
-	value: f32,
+	unit: Unit,
+	number: f64,
 }
 
 impl Value {
 
-	pub fn new(number: f32, unit: &Unit) -> Value {
-		Value { unit, value: number }
+	pub fn new(number: f64, unit: &Unit) -> Value {
+		Value { unit, number: number }
 	}
 	pub fn from_str(s: &str) -> Option<Value> {
-		let unit_index = s.chars().position(|c| c.is_alphabetic());
-		let if unit_index.is_none() {
-			let Some(scalar, unit) =
+		if let Some(unit_index) = s.chars().position(|c| c.is_alphabetic()) {
+			let (scalar, unit) = Unit::unit_and_scalar(s[unit_index..])?;
+			let number: f64 = s[..unit_index].parse()?;
+			return Value {number: number*10f64.powi(scalar), unit: unit?};
+		} else {
+			let (scalar, unit) = Unit::unit_and_scalar(s)?;
+			return Value {number: 10f64.powi(scalar), unit: unit?};
 		}
 	}
 	pub fn add(&self, other: &Value) -> Option<Value> {
 		if self != other { return None; }
-		Value::new(self.value + other.value, self.unit)
+		Value::new(self.number + other.number, self.unit)
 	}
 	pub fn negate(&self) -> Value {
-		Value::new(-self.value, self.unit)
+		Value::new(-self.number, self.unit)
 	}
 	pub fn subtract(&self, other: &Value) -> Option<Value> {
 		if let Some(v) = other.negate() {
@@ -136,10 +143,10 @@ impl Value {
 		None
 	}
 	pub fn multiply(&self, other: &Value) -> Value {
-		Value::new(self.value * other.value, self.unit.multiply(other.unit))
+		Value::new(self.number * other.number, self.unit.multiply(other.unit))
 	}
 	pub fn invert(&self) -> Value {
-		Value::new(self.value.recip(), self.unit.invert())
+		Value::new(self.number.recip(), self.unit.invert())
 	}
 	pub fn divide(&self, other: &Value) -> Value {
 		self.multiply(&other.invert())
@@ -147,9 +154,11 @@ impl Value {
 }
 
 fn new_unit(longhand: &'static str, shorthand: &'static str, unit: Unit) {
-	longhand_hm.insert(longhand, (shorthand, unit.clone()));
-	shorthand_hm.insert(shorthand, (longhand, unit.clone()));
-	unit_hm.insert(unit.clone(), (longhand, shorthand));
+	unsafe { //Reeks
+		longhand_hm.insert(longhand, (shorthand, unit.clone()));
+		shorthand_hm.insert(shorthand, (longhand, unit.clone()));
+		unit_hm.insert(unit.clone(), (longhand, shorthand));
+	}
 }
 
 pub fn new_unit_rule(longhand: &'static str, shorthand: &'static str, rule: &str) {
@@ -161,7 +170,7 @@ pub fn create_units() {
 
 	let scalar = Unit { meter: 0, gram: 0, second: 0, ampere: 0, kelvin: 0, mole: 0, candela: 0 };
 	new_unit("scalar", "_", scalar);
-	new_unit("meter", "m", Unit { meter: 1, ..scaler });
+	new_unit("meter", "m", Unit { meter: 1, ..scalar });
 	new_unit("gram", "g", Unit { gram: 1, ..scalar });
 	new_unit("second", "s", Unit { second: 1, ..scalar });
 	new_unit("ampere", "a", Unit { ampere: 1, ..scalar });
