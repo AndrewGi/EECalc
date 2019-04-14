@@ -1,5 +1,4 @@
 use std::str::CharIndices;
-use std::iter::Peekable;
 
 #[derive(Clone)]
 pub struct Cursor<'a> {
@@ -75,8 +74,8 @@ pub enum Token<'a> {
 	Operator(char)
 }
 impl<'a> Scanner<'a> {
-	fn iter() -> Peekable<CharIndices<'a>> {
-		content[position..].chars_indices().clone()
+	fn iter(&self) -> CharIndices<'a> {
+		self.content[self.position..].chars_indices().clone()
 	}
 	pub fn get_cursor(&mut self) -> Cursor<'a> {
 		while *self.position.peek().unwrap_or(&'\u{0}') == ' ' {
@@ -147,15 +146,19 @@ impl<'a> Scanner<'a> {
 			return Some(Token::Word(word));
 		}
 		if let Some(int) = self.next_int() {
-			return Some(Token::Integer(int)));
+			return Some(Token::Integer(int));
 		}
 		if let Some(float) = self.next_float() {
-			return Some(Token::)
+			return Some(Token::Float(float));
 		}
+		if let Some(operator) = self.next_operator() {
+			return Some(Token::Operator(operator));
+		}
+		None
 	}
 	pub fn new(input: &'a str) -> Scanner<'a> {
 		Scanner {
-			position: input.chars().peekable()
+			content: input
 		}
 	}
 }

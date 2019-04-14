@@ -1,6 +1,6 @@
-
-use crate::scanner::Scanner;
 use crate::si;
+use crate::scanner::Scanner;
+
 pub enum BinaryOperator {
 	Add,
 	Subtract,
@@ -10,8 +10,8 @@ pub enum BinaryOperator {
 }
 pub struct BinaryOperation {
 	operation: BinaryOperator,
-	left: Expr,
-	right: Expr,
+	left: Box<Expr>,
+	right: Box<Expr>,
 }
 pub enum UnaryOperator {
 	Plus,
@@ -43,7 +43,7 @@ impl BinaryOperator {
 
 use std::fmt;
 
-impl fmt::Display for Operator {
+impl fmt::Display for BinaryOperator {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", match *self {
 			BinaryOperator::Add => "+",

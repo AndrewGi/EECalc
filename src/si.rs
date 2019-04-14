@@ -1,5 +1,5 @@
 
-#[derive(PartialEq, Eq, Clone, Hash)]
+#[derive(PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Unit {
 	meter: i32,
 	gram: i32,
@@ -15,28 +15,27 @@ use std::fmt;
 impl fmt::Display for Unit {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		if self.meter != 0 {
-			write!(f, "m{}", self.meter);
+			write!(f, "m{}", self.meter)?
 		}
 		if self.gram != 0 {
-			write!(f, "g{}", self.gram);
+			write!(f, "g{}", self.gram)?
 		}
 		if self.second != 0 {
-			write!(f, "s{}", self.second);
+			write!(f, "s{}", self.second)?
 		}
 		if self.ampere != 0 {
-			write!(f, "a{}", self.ampere);
+			write!(f, "a{}", self.ampere)?
 		}
 		if self.kelvin != 0 {
-			write!(f, "k{}", self.kelvin);
+			write!(f, "k{}", self.kelvin)?
 		}
 		if self.mole != 0 {
-			write!(f, "m{}", self.mole);
+			write!(f, "m{}", self.mole)?
 		}
 		if self.candela != 0 {
-			write!(f, "cd{}", self.candela);
+			write!(f, "cd{}", self.candela)?
 		}
-		f
-	}
+		fmt::Result::Ok()
 }
 struct UnitScalar {
 	unit: Unit,
@@ -108,7 +107,7 @@ impl Unit {
 	}
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub struct Value {
 	unit: Unit,
 	number: f64,
@@ -116,22 +115,22 @@ pub struct Value {
 
 impl Value {
 
-	pub fn new(number: f64, unit: &Unit) -> Value {
+	pub fn new(number: f64, unit: Unit) -> Value {
 		Value { unit, number: number }
 	}
 	pub fn from_str(s: &str) -> Option<Value> {
 		if let Some(unit_index) = s.chars().position(|c| c.is_alphabetic()) {
-			let (scalar, unit) = Unit::unit_and_scalar(s[unit_index..])?;
+			let (scalar, unit) = Unit::unit_and_scalar(&s[unit_index..])?;
 			let number: f64 = s[..unit_index].parse()?;
-			return Value {number: number*10f64.powi(scalar), unit: unit?};
+			return Some(Value {number: number*10f64.powi(scalar), unit: unit?});
 		} else {
 			let (scalar, unit) = Unit::unit_and_scalar(s)?;
-			return Value {number: 10f64.powi(scalar), unit: unit?};
+			return Some(Value {number: 10f64.powi(scalar), unit: unit?});
 		}
 	}
 	pub fn add(&self, other: &Value) -> Option<Value> {
 		if self != other { return None; }
-		Value::new(self.number + other.number, self.unit)
+		Some(Value::new(self.number + other.number, self.unit))
 	}
 	pub fn negate(&self) -> Value {
 		Value::new(-self.number, self.unit)
