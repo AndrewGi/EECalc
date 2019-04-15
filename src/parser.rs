@@ -65,11 +65,12 @@ impl<'a> Parser<'a> {
 
 	pub fn next_expr(&mut self) -> Option<Expr> {
 		let last_precedence = Parser::highest_precedence();
-
+	None
 	}
 	pub fn new(input: &'a str) -> Parser<'a> {
 		Parser {
-			scanner: Scanner::new(input)
+			scanner: Scanner::new(input),
+			token_stack: Vec::new()
 		}
 	}
 

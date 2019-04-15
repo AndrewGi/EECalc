@@ -12,7 +12,7 @@ impl<'a> Cursor<'a> {
 		}
 	}
 	fn next(&mut self) -> char {
-		let (index, c) = self.iter.next().expect("unexpected end of file");
+		self.iter.next().expect("unexpected end of file").1
 	}
 	fn maybe(&mut self, c: char) -> bool {
 		if self.peek() == c {
@@ -59,7 +59,7 @@ impl<'a> Cursor<'a> {
 	}
 	fn content(&self) -> &'a str {
 		let s = self.iter.as_str();
-		s[..self.iter.clone().next().unwrap_or((s.len(), char::from(0))).1]
+		&s[..self.iter.clone().next().unwrap_or((s.len(), char::from(0))).0]
 	}
 }
 
@@ -75,19 +75,21 @@ pub enum Token<'a> {
 }
 impl<'a> Scanner<'a> {
 	fn iter(&self) -> CharIndices<'a> {
-		self.content[self.position..].chars_indices().clone()
+		self.content.char_indices().clone()
 	}
 	pub fn get_cursor(&mut self) -> Cursor<'a> {
-		while *self.position.peek().unwrap_or(&'\u{0}') == ' ' {
-			self.position.next();
-		}
+		let mut iter = self.iter();
+		self.content = &self.content[loop {
+			let mut result = iter.next().unwrap();
+			if result.1 != ' ' {break result.0}
+		}..];
 		Cursor {
-			iter: self.iter(),
+			iter: self.iter()
 		}
 
 	}
 	fn apply(&mut self, cursor: &Cursor<'a>) {
-		self.position += cursor.size;
+		self.content = cursor.iter.as_str();
 	}
 	pub fn next_int(&mut self) -> Option<i32> {
 		let mut c = self.get_cursor();
@@ -98,7 +100,7 @@ impl<'a> Scanner<'a> {
 		if c.peek() == '.' {
 			return None
 		}
-		self.apply(c);
+		self.apply(&c);
 		Some(c.content().parse().unwrap())
 	}
 	pub fn next_float(&mut self) -> Option<f64> {
