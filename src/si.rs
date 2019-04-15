@@ -2,12 +2,12 @@
 #[derive(PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Unit {
 	meter: i32,
-	gram: i32,
+	kilogram: i32,
 	second: i32,
 	ampere: i32,
 	kelvin: i32,
 	mole: i32,
-	candela: i32,
+	candela: i32
 }
 
 use std::fmt;
@@ -17,8 +17,8 @@ impl fmt::Display for Unit {
 		if self.meter != 0 {
 			write!(f, "m{}", self.meter)?
 		}
-		if self.gram != 0 {
-			write!(f, "g{}", self.gram)?
+		if self.kilogram != 0 {
+			write!(f, "g{}", self.kilogram)?
 		}
 		if self.second != 0 {
 			write!(f, "s{}", self.second)?
@@ -38,29 +38,26 @@ impl fmt::Display for Unit {
 		Ok(())
 	}
 }
-struct UnitScalar {
-	unit: Unit,
-	tenth_power: i32,
-}
 use std::collections::HashMap;
 pub struct UnitRules {
-	longhand_hm: HashMap<&'static str, (&'static str, Unit)>,
-	shorthand_hm: HashMap<&'static str, (&'static str, Unit)>,
+	longhand_hm: HashMap<&'static str, (&'static str, (Uint, i32))>,
+	shorthand_hm: HashMap<&'static str, (&'static str, (Unit, i32))>,
 	unit_hm: HashMap<Unit, (&'static str, &'static str)>
 }
 
-impl Default {
-	pub fn default() -> UnitRules{
+impl Default for UnitRules {
+	fn default() -> UnitRules{
 		let mut r = UnitRules::new();
-		let scalar = Unit { meter: 0, gram: 0, second: 0, ampere: 0, kelvin: 0, mole: 0, candela: 0 };
+		let scalar = Unit { meter: 0, kilogram: 0, second: 0, ampere: 0, kelvin: 0, mole: 0, candela: 0 };
 		r.new_unit("scalar", "_", scalar);
 		r.new_unit("meter", "m", Unit { meter: 1, ..scalar });
-		r.new_unit("gram", "g", Unit { gram: 1, ..scalar });
+		r.new_unit("kilogram", "kg", Unit { kilogram: 1, ..scalar });
 		r.new_unit("second", "s", Unit { second: 1, ..scalar });
 		r.new_unit("ampere", "a", Unit { ampere: 1, ..scalar });
 		r.new_unit("kelvin", "k", Unit { kelvin: 1, ..scalar });
 		r.new_unit("mole", "mol", Unit { mole: 1, ..scalar });
 		r.new_unit("candela", "cd", Unit { candela: 1, ..scalar });
+        r.new_unit_rule("gram", "g", "mkg");
 		r.new_unit_rule("newton", "n", "kg*m/s^2");
 		r.new_unit_rule("joule", "j", "n*m");
 		r.new_unit_rule("watt", "w", "j*s");
@@ -74,15 +71,13 @@ impl UnitRules {
 		UnitRules {longhand_hm: HashMap::new(), shorthand_hm: HashMap::new(), unit_hm: HashMap::new()}
 	}
 	fn new_unit(longhand: &'static str, shorthand: &'static str, unit: Unit) {
-		unsafe { //Reeks
-			longhand_hm.insert(longhand, (shorthand, unit.clone()));
-			shorthand_hm.insert(shorthand, (longhand, unit.clone()));
-			unit_hm.insert(unit.clone(), (longhand, shorthand));
-		}
+		longhand_hm.insert(longhand, (shorthand, (unit.clone(), 0)));
+		shorthand_hm.insert(shorthand, (longhand, (unit.clone(), 0)));
+		unit_hm.insert(unit.clone(), (longhand, shorthand));
 	}
 
 	fn new_unit_rule(longhand: &'static str, shorthand: &'static str, rule: &str) {
-
+        let mut iter = rule.split(|c: char| c=='/' || c=='*' || c=='^');
 	}
 
 
@@ -92,7 +87,7 @@ impl Unit {
 	pub fn multiply(&self, other: &Unit) -> Unit {
 		Unit {
 			meter: self.meter + other.meter,
-			gram: self.gram + other.gram,
+			kilogram: self.kilogram + other.kilogram,
 			second: self.second + other.second,
 			ampere: self.ampere + other.ampere,
 			kelvin: self.kelvin + other.kelvin,
@@ -103,7 +98,7 @@ impl Unit {
 	pub fn invert(&self) -> Unit {
 		Unit {
 			meter: -self.meter,
-			gram: -self.gram,
+			kilogram: -self.kilogram,
 			second: -self.second,
 			ampere: -self.ampere,
 			kelvin: -self.kelvin,
@@ -130,9 +125,7 @@ impl Unit {
 		}
 	}
 	pub fn from_shorthand(s: &str) -> Option<Unit> {
-		unsafe { //Reeks
-			Some(shorthand_hm.get(s).clone()?.1)
-		}
+        Some(shorthand_hm.get(s).clone()?.1)
 	}
 	pub fn unit_and_scalar(s: &str) -> Option<(i32, Option<Unit>)> {
 		if s.len() == 0 {
