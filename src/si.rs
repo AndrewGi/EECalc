@@ -80,19 +80,19 @@ impl UnitRules {
         let mut iter = rule.split(|c: char| c=='/' || c=='*' || c=='^');
 	}
 
-
-
 }
+pub static mut GLOBAL_RULES: UnitRules = UnitRules::default();
+
 impl Unit {
-	pub fn multiply(&self, other: &Unit) -> Unit {
+	pub fn raise(&self, power: i32) -> Unit {
 		Unit {
-			meter: self.meter + other.meter,
-			kilogram: self.kilogram + other.kilogram,
-			second: self.second + other.second,
-			ampere: self.ampere + other.ampere,
-			kelvin: self.kelvin + other.kelvin,
-			mole: self.mole + other.mole,
-			candela: self.candela + other.candela,
+			meter: self.meter*power,
+			kilogram: self.kilogram*power,
+			second: self.second*power,
+			ampere: self.ampere*power,
+			kelvin: self.kelvin*power,
+			mole: self.mole*power,
+			candela: self.candela*power,
 		}
 	}
 	pub fn invert(&self) -> Unit {
@@ -106,41 +106,90 @@ impl Unit {
 			candela: -self.candela,
 		}
 	}
-	pub fn divide(&self, other: &Unit) -> Unit {
-		self.multiply(&other.invert())
-	}
-	pub fn get_exponent_scalar(c: char) -> i32 {
+	pub fn get_prefix(c: char) -> Option<i32> {
 		match c {
-			'g' => 9,
-			'M' => 6,
-			'k' => 3,
-			'c' => -2,
-			'm' => -3,
-			'u' => -6,
-			'n' => -9,
-			'p' => -12,
-			'f' => -15,
-			'a' => -18,
-			_ => 0,
+			'g' => Some(9),
+			'M' => Some(6),
+			'k' => Some(3),
+			'c' => Some(-2),
+			'm' => Some(-3),
+			'u' => Some(-6),
+			'n' => Some(-9),
+			'p' => Some(-12),
+			'f' => Some(-15),
+			'a' => Some(-18),
+			_ => None,
 		}
 	}
-	pub fn from_shorthand(s: &str) -> Option<Unit> {
+	fn from_single_shorthand(s: &str) -> Option<Unit> {
         Some(shorthand_hm.get(s).clone()?.1)
 	}
-	pub fn unit_and_scalar(s: &str) -> Option<(i32, Option<Unit>)> {
-		if s.len() == 0 {
-			return None
+}
+impl std::ops::Mul for Unit {
+	type Output = Self;
+	fn mul(&self, other: &self) -> self::Output {
+		Unit {
+			meter: self.meter + other.meter,
+			kilogram: self.kilogram + other.kilogram,
+			second: self.second + other.second,
+			ampere: self.ampere + other.ampere,
+			kelvin: self.kelvin + other.kelvin,
+			mole: self.mole + other.mole,
+			candela: self.candela + other.candela,
 		}
-		let c = s.chars().next().unwrap();
-		let scalar = Unit::get_exponent_scalar(c);
-		if s.len() == 1 && scalar != 0{
-			return Some((scalar, None))
-		}
-		Some((scalar, Some(Unit::from_shorthand(if scalar == 0 {s} else {&s[1..]})?)))
-
 	}
 }
+impl std::ops::Div for Unit {
+	type Output = Self;
+	fn div(&self, other: &self) -> self::Output {
+		Unit {
+			meter: self.meter - other.meter,
+			kilogram: self.kilogram - other.kilogram,
+			second: self.second - other.second,
+			ampere: self.ampere - other.ampere,
+			kelvin: self.kelvin - other.kelvin,
+			mole: self.mole - other.mole,
+			candela: self.candela - other.candela,
+		}
+	}
+}
+pub enum ParseUnitError {
+	UnrecognizedUnit(usize, usize),
+	IntegerParseError(usize, usize),
+}
+impl std::str::FromStr for Unit {
+	type Err = ParseUnitError;
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let get_unit = |s: &str| {unsafe {Some(GLOBAL_RULES.shorthand_hm.get(s)?.1)}};
+		let is_operator = |c: char| c=='*' || c == '/';
+		let mut out_unit = Unit::new();
+		let mut last_pos = 0;
+		let mut last_operator = '*';
+		loop {
+			let next_pos = s[last_pos..].find(is_operator).unwrap_or_else(s.len);
+			let part = s[last_pos..next_pos];
+			let c = if next_pos==s.len() {' '} else {s[next_pos]};
+			if let Some(raw_unit) = Unit::from_single_shorthand(&part) {
+				let unit = get_unit(&part);
+				out_unit = match last_operator {
+					'*' => out_unit * unit,
+					'/' => out_unit / unit,
 
+				}
+			} else {
+				return Err(())
+			}
+			match last_operator {
+
+			}
+			last_pos = next_pos;
+
+			let next_operator =
+
+		}
+		Ok(unit)
+	}
+}
 #[derive(PartialEq, Clone, Copy)]
 pub struct Value {
 	unit: Unit,
@@ -150,7 +199,7 @@ pub struct Value {
 impl Value {
 
 	pub fn new(number: f64, unit: Unit) -> Value {
-		Value { unit, number: number }
+		Value { unit, number }
 	}
 	pub fn from_str(s: &str) -> Option<Value> {
 		if let Some(unit_index) = s.chars().position(|c| c.is_alphabetic()) {
@@ -160,32 +209,58 @@ impl Value {
 				return None
 			}
 			let number = num_result.unwrap();
-			return Some(Value {number: number*10f64.powi(scalar), unit: unit?});
+			Some(Value {number: number*10f64.powi(scalar), unit: unit?})
 		} else {
 			let (scalar, unit) = Unit::unit_and_scalar(s)?;
-			return Some(Value {number: 10f64.powi(scalar), unit: unit?});
+			Some(Value {number: 10f64.powi(scalar), unit: unit?})
 		}
 	}
-	pub fn add(&self, other: &Value) -> Option<Value> {
-		if self != other { return None; }
-		Some(Value::new(self.number + other.number, self.unit))
-	}
-	pub fn negate(&self) -> Value {
-		Value::new(-self.number, self.unit)
-	}
-	pub fn subtract(&self, other: &Value) -> Option<Value> {
-		self.add(&other.negate())
-	}
-	pub fn multiply(&self, other: &Value) -> Value {
-		Value::new(self.number * other.number, self.unit.multiply(&other.unit))
-	}
-	pub fn invert(&self) -> Value {
-		Value::new(self.number.recip(), self.unit.invert())
-	}
-	pub fn divide(&self, other: &Value) -> Value {
-		self.multiply(&other.invert())
+}
+impl std::ops::Add<Self> for Value {
+	type Output = Result<(), Value>;
+	fn add(self, other: &Value) -> Self::Output {
+		if self.unit != other.unit {
+			Err(())
+		} else {
+			Ok(self.number + other.number)
+		}
 	}
 }
+impl std::ops::Neg for Value {
+	type Output = Self;
+	fn neg(mut self) -> Self::Output {
+		self.number = -self.number;
+		self
+	}
+}
+impl std::ops::Sub<Self> for Value {
+	type Output = Self;
+	fn sub(self, other: &Value) -> Self::Output {
+		self + -other
+	}
+}
+impl std::ops::Mul<Self> for Value {
+	type Output = Value;
+	fn mul(&self, other: &Value) -> Self::Output {
+		Value { unit: self.unit * other.unit, number: self.number * other.number}
+	}
+}
+impl std::ops::Div<Self> for Value {
+	type Output = Result<(), Value>;
+	fn mul(&self, other: &Value) -> Self::Output {
+		if other.number == 0f64 {
+			Err(())
+		} else {
+			Some(Value { unit: self.unit / other.unit, number: self.number / other.number })
+		}
 
-
+	}
+}
+impl std::ops::Mul<f64> for Value {
+	type Output = Value;
+	fn mul(self, scalar: f64) -> Self::Output {
+		self.number * scalar;
+		self
+	}
+}
 
