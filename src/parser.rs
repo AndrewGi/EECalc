@@ -9,7 +9,7 @@ pub enum BinaryOperator {
 	Equality,
 }
 pub struct BinaryOperation {
-	operation: BinaryOperator,
+	operator: BinaryOperator,
 	left: Box<Expr>,
 	right: Box<Expr>,
 }
@@ -27,6 +27,7 @@ pub enum Expr {
 }
 enum Token {
 	Expr(Expr),
+
 }
 
 impl BinaryOperator {
@@ -62,10 +63,17 @@ impl<'a> Parser<'a> {
 	pub fn highest_precedence() -> i32 {
 		18
 	}
-
+	fn stack_operator_precedence(&self) -> Option<i32> {
+		match self.token_stack.last()? {
+			Token::Expr(expr) => match expr {
+				Expr::BinaryOperation(bop) => Some(bop.operator.precedence()),
+				_ => None
+			}
+		}
+	}
 	pub fn next_expr(&mut self) -> Option<Expr> {
-		let last_precedence = Parser::highest_precedence();
-	None
+		let last_precedence = self.stack_operator_precedence().unwrap_or(0);
+
 	}
 	pub fn new(input: &'a str) -> Parser<'a> {
 		Parser {
