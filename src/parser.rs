@@ -27,9 +27,13 @@ pub enum Expr {
 }
 enum Token {
 	Expr(Expr),
-
+	BinaryOperator(BinaryOperator)
 }
-
+impl BinaryOperation {
+	pub fn new(left: Expr, operator: BinaryOperator, right: Expr) -> BinaryOperation {
+		BinaryOperation { left: Box::new(left), operator, right: Box::new(right)}
+	}
+}
 impl BinaryOperator {
 	pub fn precedence(&self) -> i32 {
 		match *self { //using cppreference.com 4/13/2019
@@ -64,12 +68,29 @@ impl<'a> Parser<'a> {
 		18
 	}
 	fn stack_operator_precedence(&self) -> Option<i32> {
-		match self.token_stack.last()? {
-			Token::Expr(expr) => match expr {
-				Expr::BinaryOperation(bop) => Some(bop.operator.precedence()),
-				_ => None
+		match self.token_stack.get(self.token_stack.len()-2)? {
+			Token::BinaryOperator(op) => Some(op.precedence()),
+			_ => None,
+		}
+	}
+	fn pop_binary_operation(&mut self) -> Option<BinaryOperator> {
+		if self.token_stack.len() < 3 {
+			return None
+		}
+		let right_t = self.token_stack.pop().unwrap();
+		let operator_t = self.token_stack.pop().unwrap();
+		let left_t = self.token_stack.pop().unwrap();
+		match (left_t, operator_t, right_t) {
+			(Token::Expr(left), Token::BinaryOperator(operator), Token::Expr(right)) => Some(BinaryOperation::new(left, operator, right))
+			_ => {
+
+				self.token_stack.push(left_t);
+				self.token_stack.push(operator_t);
+				self.token_stack.push(right_t);
+				None
 			}
 		}
+
 	}
 	pub fn next_expr(&mut self) -> Option<Expr> {
 		let last_precedence = self.stack_operator_precedence().unwrap_or(0);

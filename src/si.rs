@@ -85,7 +85,7 @@ impl Default for UnitRules {
         r
     }
 }
-
+#[derive(Debug)]
 pub enum ParseUnitError {
     UnrecognizedUnit(usize, usize),
     IntegerParseError(usize, usize),
