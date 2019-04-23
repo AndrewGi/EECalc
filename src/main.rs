@@ -6,6 +6,7 @@ mod parser;
 fn main() {
     println!("rust calc\
     ");
-    let mut _x = parser::Parser::new("10na * 10gv");
+    let mut x = scanner::Scanner::new("10na * 10gv");
+    println!("{:?}", x.get_cursor().next_value());
     //println!("{}", x.next_value().unwrap());
 }

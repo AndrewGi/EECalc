@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use crate::si::ParseUnitError::{IntegerParseError, UnrecognizedUnit, EarlyEndOfLine};
+use std::fmt::{Display, Formatter};
 
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Debug, Default)]
 pub struct Unit {
@@ -16,25 +17,25 @@ pub struct Unit {
 impl fmt::Display for Unit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.meter != 0 {
-            write!(f, "m{}", self.meter)?
+            write!(f, "m^{}", self.meter)?
         }
         if self.kilogram != 0 {
-            write!(f, "g{}", self.kilogram)?
+            write!(f, "g^{}", self.kilogram)?
         }
         if self.second != 0 {
-            write!(f, "s{}", self.second)?
+            write!(f, "s^{}", self.second)?
         }
         if self.ampere != 0 {
-            write!(f, "a{}", self.ampere)?
+            write!(f, "a^{}", self.ampere)?
         }
         if self.kelvin != 0 {
-            write!(f, "k{}", self.kelvin)?
+            write!(f, "k^{}", self.kelvin)?
         }
         if self.mole != 0 {
-            write!(f, "m{}", self.mole)?
+            write!(f, "m^{}", self.mole)?
         }
         if self.candela != 0 {
-            write!(f, "cd{}", self.candela)?
+            write!(f, "cd^{}", self.candela)?
         }
         Ok(())
     }
@@ -260,7 +261,7 @@ impl std::ops::Div for &Unit {
     }
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Value {
     unit: Unit,
     number: f64,
@@ -283,7 +284,11 @@ impl Value {
         })
     }
 }
-
+impl Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}{}", self.number, self.unit)
+    }
+}
 impl std::ops::Add<&Value> for Value {
     type Output = Result<Value, ()>;
     fn add(mut self, other: &Value) -> Self::Output {
