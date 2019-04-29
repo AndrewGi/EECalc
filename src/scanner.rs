@@ -1,227 +1,141 @@
-use std::str::CharIndices;
-use crate::si;
-use crate::si::UnitWithExponent;
-
-#[derive(Debug, Clone)]
-pub struct Cursor<'a> {
-    start: &'a str,
-    current_index: usize,
-    iter: CharIndices<'a>,
-}
-
-impl<'a> Cursor<'a> {
-    #[warn(dead_code)]
-    pub fn peek(&self) -> char {
-        self.iter.clone().next().unwrap_or((0, ' ')).1
-    }
-    fn next(&mut self) -> char {
-        let (i, c) = self.iter.next().expect("unexpected end of file");
-        self.current_index = i;
-        c
-    }
-    fn eat_whitespace(iter: &mut CharIndices<'a>) {
-        while (iter.clone().next().unwrap_or((0, char::from(0u8))).1).is_whitespace() {
-            iter.next();
-        }
-    }
-    fn maybe(&mut self, c: char) -> bool {
-        if self.peek() == c {
-            self.next();
-            return true;
-        }
-        return false;
-    }
-    fn maybe_digits(&mut self) -> bool {
-        if !self.maybe_digit() {
-            return false;
-        }
-        while self.maybe_digit() {}
-        return true;
-    }
-    fn maybe_digit(&mut self) -> bool {
-        if self.peek().is_digit(10) {
-            self.next();
-            return true;
-        }
-        return false;
-    }
-
-    fn maybe_alpha(&mut self) -> bool {
-        if self.peek().is_alphabetic() {
-            self.next();
-            return true;
-        }
-        return false;
-    }
-    fn maybe_alphanumeric(&mut self) -> bool {
-        if self.peek().is_alphanumeric() {
-            self.next();
-            return true;
-        }
-        return false;
-    }
-    fn maybe_alphanumerics(&mut self) -> bool {
-        if !self.maybe_alphanumeric() {
-            return false;
-        }
-        while self.maybe_alphanumeric() {}
-        return true;
-    }
-    fn current_pos(&self) -> usize {
-        self.current_index
-    }
-    fn len(&self) -> usize {
-        self.iter.clone().next().unwrap_or_else(|| (self.iter.as_str().len(), ' ')).0
-    }
-    fn as_str(&self) -> &'a str {
-        &self.start[..self.current_pos()]
-    }
-    fn excluding_as_str(&self) -> &'a str {
-        &self.iter.as_str()[self.len()..]
-    }
-    pub fn next_unit_exponent(&mut self) -> Option<si::UnitWithExponent> {
-        let pos = self.iter.clone();
-        let start_index = self.current_pos();
-        Self::eat_whitespace(&mut self.iter);
-        loop {
-            if self.next_word().is_none() {
-                break;
-            }
-            if self.maybe('^') {
-                if self.next_int().is_none() {
-                    self.iter = pos;
-                    return None;
-                }
-            } else {
-                if !(self.maybe('*') || self.maybe('/')) {
-                    break;
-                }
-            }
-        }
-        if self.current_pos() == start_index {
-            None
-        } else {
-            Some(self.as_str()[start_index..].parse().unwrap())
-        }
-    }
-    pub fn next_value(&mut self) -> Option<si::Value> {
-        let (number, did_get_number) = match self.next_float() {
-            Some(f) => (f, true),
-            None => (1f64, false)
-        };
-        Some(match self.next_unit_exponent() {
-            Some(ue) => ue,
-            None if did_get_number => UnitWithExponent::default(),
-            None => return None
-        }.make_value(number))
-    }
-
-    pub fn next_int(&mut self) -> Option<i32> {
-        let start_iter = self.iter.clone();
-        Self::eat_whitespace(&mut self.iter);
-        let start_index = self.current_pos();
-        self.maybe('-');
-        if !self.maybe_digits() {
-            self.iter = start_iter;
-            return None;
-        }
-        if self.peek() == '.' {
-            self.iter = start_iter;
-            return None;
-        }
-        Some(self.as_str()[start_index..].parse().unwrap())
-    }
-
-    pub fn next_float(&mut self) -> Option<f64> {
-        let pos = self.iter.clone();
-        let start_index = self.current_pos();
-        Self::eat_whitespace(&mut self.iter);
-        self.maybe('-');
-        let was_digits = self.maybe_digits();
-        let was_period = self.maybe('.');
-
-        if !was_digits && !was_period {
-            self.iter = pos; //no float
-            return None;
-        }
-        self.maybe_digits();
-        Some(self.as_str()[start_index..].parse().unwrap())
-    }
-
-    pub fn next_word(&mut self) -> Option<&'a str> {
-        let start_iter = self.iter.clone();
-        Self::eat_whitespace(&mut self.iter);
-        let start_index = self.current_pos();
-        println!("index {}", self.peek());
-        if !(self.maybe_alpha() || self.maybe('_')) {
-            self.iter = start_iter;
-            return None;
-        }
-        while self.maybe_alphanumeric() || self.maybe('_') {};
-        Some(&self.as_str()[start_index..])
-    }
-
-    pub fn peek_operator(&self) -> Option<char> {
-        let mut iter = self.iter.clone();
-        Self::eat_whitespace(&mut iter);
-        let op = iter.next()?.1;
-        println!("{}", iter.next()?.1);
-        let is_operator = match op {
-            '+' => true,
-            '-' => true,
-            '*' => true,
-            '/' => true,
-            //'(' => true,
-            //')' => true,
-            '=' => true,
-            //'>' => true,
-            //'<' => true,
-            _ => false
-        };
-        if !is_operator {
-            return None;
-        }
-        Some(op)
-    }
-    pub fn next_operator(&mut self) -> Option<char> {
-        let c = self.peek_operator()?;
-        while self.next() != c {};
-        Some(c)
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Scanner<'a> {
-    content: &'a str,
+    total_input: &'a str,
+    position: usize
 }
-
-pub enum Token<'a> {
-    Float(f64),
-    Integer(i32),
-    Word(&'a str),
-    Operator(char),
+#[derive(Debug, Clone)]
+pub struct SavedPosition<'a> {
+    parent: * mut Scanner<'a>,
+    saved_position: usize,
+    should_restore: bool
 }
-
-impl<'a> Scanner<'a> {
-    fn iter(&self) -> CharIndices<'a> {
-        self.content.char_indices().clone()
-    }
-    pub fn get_cursor(&self) -> Cursor<'a> {
-        let iter = self.iter();
-        let start = iter.as_str();
-        Cursor {
-            iter,
-            current_index: 0,
-            start,
+impl<'a, 'b> SavedPosition<'a> {
+    fn new(scanner: &'b mut Scanner<'a>) -> SavedPosition<'a> {
+        SavedPosition {
+            parent: scanner,
+            saved_position: scanner.position,
+            should_restore: true
         }
     }
-    fn apply(&mut self, cursor: &Cursor<'a>) {
-        self.content = cursor.excluding_as_str().trim_start();
+    fn ok(&mut self) {
+        self.should_restore = true;
     }
-
-    pub fn new(input: &'a str) -> Scanner<'a> {
-        Scanner {
-            content: input.trim_start()
+    fn bad(&mut self) {
+        self.should_restore = false;
+    }
+    fn should_restore(&self) -> bool {
+        self.should_restore
+    }
+    fn mut_scanner(&mut self) -> &mut Scanner<'a> {
+        unsafe {
+            self.parent.as_mut().unwrap()
         }
     }
+    fn scanner(&self) -> &Scanner<'a> {
+        unsafe {
+            self.parent.as_ref().unwrap()
+        }
+    }
+    fn as_str(&self) -> &'a str {
+        &self.scanner().total_input[self.saved_position..self.scanner().position]
+    }
+    fn restore(&mut self) {
+        self.mut_scanner().position = self.saved_position
+    }
+    fn collect(&mut self) -> &'a str {
+        self.ok();
+        self.as_str()
+    }
+    fn on_option<T>(&mut self, option: Option<T>) -> Option<T> {
+        if option.is_some() {
+            self.ok()
+        }
+        option
+    }
+}
+impl<'a, 'b> Drop for SavedPosition<'a> {
+    fn drop(&mut self) {
+        if self.should_restore {
+            self.restore();
+        }
+    }
+}
+impl<'a, 'b> Scanner<'a> {
+    pub fn position(&'b mut self) -> SavedPosition<'a> {
+        SavedPosition::new(&mut self)
+    }
+    pub fn eat_whitespace(&mut self) {
+        while let Some(c) = self.peek() {
+            if c != ' ' {
+                break;
+            }
+            self.next();
+        }
+    }
+    pub fn peek(&self) -> Option<char> {
+        self.as_str().chars().next()
+    }
+    pub fn as_str(&self) -> &'a str {
+        &self.total_input[self.position..]
+    }
+    pub fn next(&mut self) -> Option<char> {
+        let c = self.as_str().chars().next()?;
+        self.position+=1;
+        Some(c)
+    }
+    pub fn maybe(&mut self, c: char) -> bool {
+        self.peek().map_or(false, |p| c==p)
+    }
+    pub fn only_if(&mut self, c: char) -> Option<char> {
+        if self.peek()? == 'c' {
+            Some(c)
+        } else {
+            None
+        }
+    }
+    pub fn next_digit(&mut self) -> Option<u32> {
+        self.peek()?.to_digit(10)
+    }
+    pub fn next_digits(&mut self) -> Option<u32> {
+        let mut number = self.next_digit()?;
+        let mut position: u32 = 1;
+        while let Some(digit) = self.next_digit() {
+            number += 10u32.pow(position) * digit;
+            position+=1;
+        }
+        Some(number)
+    }
+    pub fn next_operator(&mut self) -> Option<char> {
+        let mut pos = self.position();
+        self.eat_whitespace();
+
+        pos.on_option(match self.peek()? {
+            '+' => Some('+'),
+            _ => None
+        })
+    }
+    pub fn next_int(&mut self) -> Option<i32> {
+        let mut pos = self.position();
+        let result: i32 = if self.maybe('-') {-1} else {1} * (self.next_digits()? as i32);
+        pos.ok();
+        Some(result)
+    }
+    pub fn next_float(&mut self) -> Option<f64> {
+        let mut pos = self.position();
+        let is_negative = self.maybe('-');
+
+        match self.next_digits() {
+            Some(_) => {
+                self.only_if('.')?;
+                let _ = self.next_digits(); //ignore option
+            }
+            None => {
+                self.only_if('.')?;
+                self.next_digits()?;
+            }
+        }
+        Some(pos.collect().parse().unwrap())
+
+    }
+
 }

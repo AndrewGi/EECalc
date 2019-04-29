@@ -106,9 +106,9 @@ impl fmt::Display for BinaryOperator {
 }
 #[derive(Debug)]
 pub enum ParserError<'a> {
-	ExpectedOperator(crate::scanner::Cursor<'a>),
-	ExpectedValue(crate::scanner::Cursor<'a>),
-	EarlyEndOfInput(crate::scanner::Cursor<'a>)
+	ExpectedOperator(crate::scanner::SavedPosition<'a>),
+	ExpectedValue(crate::scanner::SavedPosition<'a>),
+	EarlyEndOfInput(crate::scanner::SavedPosition<'a>)
 }
 
 #[derive(Debug, Clone)]
@@ -116,7 +116,7 @@ pub struct Parser<'a> {
 	scanner: Scanner<'a>,
 }
 pub struct Cursor<'a> {
-	s_cursor: crate::scanner::Cursor<'a>,
+	scanner: crate::scanner::Scanner<'a>,
 	t_stack: Vec<Token>
 }
 impl<'a> crate::parser::Cursor<'a> {
@@ -178,7 +178,7 @@ impl<'a> crate::parser::Cursor<'a> {
 				None => false
 			}
 		};
-		let op_c = self.s_cursor.peek_operator()?;
+		let op_c = self.scanner.peek()?;
 		match op_c {
 			'/' => Some(crate::parser::Operator::Binary(BinaryOperator::Divide)),
 			'*' => Some(crate::parser::Operator::Binary(BinaryOperator::Multiply)),
@@ -201,7 +201,7 @@ impl<'a> crate::parser::Cursor<'a> {
 	}
 	fn next_operator(&mut self) -> Option<crate::parser::Operator> {
 		let operator = self.peek_operator()?;
-		self.s_cursor.next_operator().unwrap(); //there should be a next operator
+		self.scanner.next_operator().unwrap(); //there should be a next operator
 		Some(operator)
 	}
 	fn peek_precedence(&self) -> Option<i32> {
