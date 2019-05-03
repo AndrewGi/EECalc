@@ -212,7 +212,7 @@ impl<'a> crate::parser::Cursor<'a> {
 	}
 	pub fn next_expression(&mut self) -> Result<Expr, ParserError<'a>> {
 		if self.t_stack.is_empty() {
-			if let Some(value) = self.s_cursor.next_value() {
+			if let Some(value) = self.scanner.next_value() {
 				self.push(Token::Expr(Expr::Value(value)))
 			} else {
 				return Err(ExpectedValue(self.s_cursor.clone()))
