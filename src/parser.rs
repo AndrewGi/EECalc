@@ -105,10 +105,10 @@ impl fmt::Display for BinaryOperator {
 	}
 }
 #[derive(Debug)]
-pub enum ParserError<'a> {
-	ExpectedOperator(crate::scanner::SavedPosition<'a>),
-	ExpectedValue(crate::scanner::SavedPosition<'a>),
-	EarlyEndOfInput(crate::scanner::SavedPosition<'a>)
+pub enum ParserError {
+	ExpectedOperator(usize),
+	ExpectedValue(usize),
+	EarlyEndOfInput(usize)
 }
 
 #[derive(Debug, Clone)]
@@ -210,29 +210,29 @@ impl<'a> crate::parser::Cursor<'a> {
 	fn push(&mut self, token: Token) {
 		self.t_stack.push(token);
 	}
-	pub fn next_expression(&mut self) -> Result<Expr, ParserError<'a>> {
+	pub fn next_expression(&mut self) -> Result<Expr, ParserError> {
 		if self.t_stack.is_empty() {
-			if let Some(value) = self.s_cursor.next_value() {
+			if let Some(value) = self.scanner.next_value() {
 				self.push(Token::Expr(Expr::Value(value)))
 			} else {
-				return Err(ExpectedValue(self.s_cursor.clone()))
+				return Err(ExpectedValue(self.scanner.index()))
 			}
 		}
 		//Eat the scanner cursor
-		while self.s_cursor.peek_operator().unwrap_or(' ') != ')' && self.peek_precedence() < self.stack_operator_precedence() {
-			let operator = match self.next_operator() {
+		while self.scanner.peek().unwrap_or(' ') != ')' && self.peek_precedence() < self.stack_operator_precedence() {
+			let operator = match self.scanner.next().unwrap_or(' ') {
 				Some(c) => c,
 				None => return Err(ExpectedOperator(self.s_cursor.clone()))
 			};
 			let expression = if let Some(op) = self.s_cursor.peek_operator() {
 				if op == '(' {
-					debug_assert!(self.s_cursor.next_operator().unwrap() == '(');
+					debug_assert!(self.scanner.next_operator().unwrap() == '(');
 					self.next_expression()?
 				} else {
 					return Err(ExpectedOperator(self.s_cursor.clone())); //Expected a '('
 				}
 			} else {
-				Expr::Value(match self.s_cursor.next_value() {
+				Expr::Value(match self.scanner.next_value() {
 					Some(value) => value,
 					None => return Err(ExpectedValue(self.s_cursor.clone()))
 				})
@@ -243,8 +243,8 @@ impl<'a> crate::parser::Cursor<'a> {
 			});
 			self.push(Token::Expr(expression));
 		}
-		if self.s_cursor.peek_operator().unwrap_or(' ') == ')' {
-			self.s_cursor.next_operator().unwrap(); //Eat the closing parathesis
+		if self.scanner.peek_operator().unwrap_or(' ') == ')' {
+			self.scanner.next_operator().unwrap(); //Eat the closing parathesis
 		}
 		//Eat a operation off the stack
 		Ok(match self.pop_operation().expect("token stack invalid") {
@@ -262,7 +262,7 @@ impl<'a> Parser<'a> {
 	pub fn get_cursor(&self) -> Cursor<'a> {
 
 		Cursor {
-			s_cursor: self.scanner.get_cursor(),
+			scanner: self.scanner.clone(),
 			t_stack: vec![]
 		}
 	}

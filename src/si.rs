@@ -104,7 +104,7 @@ impl std::str::FromStr for UnitWithExponent {
         loop {
             let unit_end_index = s[current_pos..].find(is_operator).unwrap_or_else(|| s.len());
             let char_at = |pos: usize| if pos == s.len() { ' ' } else { char::from(s.as_bytes()[pos]) };
-            let unit_s = &s[unit_end_index..unit_end_index];
+            let unit_s = &s[current_pos..unit_end_index];
 
 
             //check for '^(some_number)`

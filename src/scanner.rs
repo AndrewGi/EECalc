@@ -1,3 +1,5 @@
+use crate::si::{Value, UnitWithExponent};
+
 #[derive(Debug, Clone)]
 pub struct Scanner<'a> {
     total_input: &'a str,
@@ -63,6 +65,9 @@ impl<'a, 'b> Drop for SavedPosition<'a> {
 impl<'a, 'b> Scanner<'a> {
     pub fn position(&'b mut self) -> SavedPosition<'a> {
         SavedPosition::new(&mut self)
+    }
+    pub fn index(&self) -> usize {
+        self.position
     }
     pub fn eat_whitespace(&mut self) {
         while let Some(c) = self.peek() {
@@ -135,6 +140,47 @@ impl<'a, 'b> Scanner<'a> {
             }
         }
         Some(pos.collect().parse().unwrap())
+
+    }
+    pub fn next_word(&mut self) -> Option<&'a str> {
+        let mut pos = self.position();
+        while self.peek().unwrap_or(' ').is_alphabetic() {
+            self.next();
+        }
+        Some(pos.collect())
+    }
+    pub fn next_unit_exponent(&mut self) -> Option<UnitWithExponent> {
+        let mut pos = self.position();
+        loop {
+            self.next_word()?;
+            match self.next_operator()? {
+                '*' | '/' => (),
+                '^' => {
+                    self.next_int()?;
+                    if let Some(op) = self.next_operator() {
+                        match op {
+                            '*' | '/' => (),
+                            _ => break
+                        }
+                    }
+                }
+                _ => break
+            }
+        }
+        Some(pos.collect().parse().unwrap())
+    }
+    pub fn next_value(&mut self) -> Option<Value> {
+        let mut pos = self.position();
+        let (float, captured_float) = match self.next_float() {
+            Some(float) => (float, true),
+            None => (1f64, false)
+        };
+        let ue = match self.next_unit_exponent() {
+            Some(ue) => ue,
+            None => if captured_float {UnitWithExponent::default()}else{return None}
+        };
+        pos.ok();
+        Some(ue.make_value(float))
 
     }
 
