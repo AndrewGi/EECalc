@@ -1,141 +1,100 @@
+use crate::scanner::Separator::{OpenParentheses, CloseParentheses, Comma, Period, Colon};
+use std::path::is_separator;
+use crate::scanner::Operator::Plus;
+
 #[derive(Debug, Clone)]
 pub struct Scanner<'a> {
     total_input: &'a str,
     position: usize
 }
-#[derive(Debug, Clone)]
-pub struct SavedPosition<'a> {
-    parent: * mut Scanner<'a>,
-    saved_position: usize,
-    should_restore: bool
+
+pub enum Operator {
+    Plus,
+    Minus,
+    Times,
+    Divide,
+    Raise,
+    Equals,
 }
-impl<'a, 'b> SavedPosition<'a> {
-    fn new(scanner: &'b mut Scanner<'a>) -> SavedPosition<'a> {
-        SavedPosition {
-            parent: scanner,
-            saved_position: scanner.position,
-            should_restore: true
-        }
-    }
-    fn ok(&mut self) {
-        self.should_restore = true;
-    }
-    fn bad(&mut self) {
-        self.should_restore = false;
-    }
-    fn should_restore(&self) -> bool {
-        self.should_restore
-    }
-    fn mut_scanner(&mut self) -> &mut Scanner<'a> {
-        unsafe {
-            self.parent.as_mut().unwrap()
-        }
-    }
-    fn scanner(&self) -> &Scanner<'a> {
-        unsafe {
-            self.parent.as_ref().unwrap()
-        }
-    }
-    fn as_str(&self) -> &'a str {
-        &self.scanner().total_input[self.saved_position..self.scanner().position]
-    }
-    fn restore(&mut self) {
-        self.mut_scanner().position = self.saved_position
-    }
-    fn collect(&mut self) -> &'a str {
-        self.ok();
-        self.as_str()
-    }
-    fn on_option<T>(&mut self, option: Option<T>) -> Option<T> {
-        if option.is_some() {
-            self.ok()
-        }
-        option
-    }
+pub enum Separator {
+    Comma,
+    Period,
+    Colon,
+    OpenParentheses,
+    CloseParentheses,
 }
-impl<'a, 'b> Drop for SavedPosition<'a> {
-    fn drop(&mut self) {
-        if self.should_restore {
-            self.restore();
+pub enum TokenType {
+    Word,
+    Operator(Operator),
+    Separator(Separator)
+}
+pub struct Token<'a> {
+    content: &'a str,
+    start: usize,
+    token_type: TokenType
+}
+impl Separator {
+    pub fn is_separator(c: char) -> Option<Separator> {
+        match c {
+            '(' => Some(OpenParentheses),
+            ')' => Some(CloseParentheses),
+            ',' => Some(Comma),
+            '.' => Some(Period),
+            ':' => Some(Colon),
+            _ => None
         }
     }
 }
-impl<'a, 'b> Scanner<'a> {
-    pub fn position(&'b mut self) -> SavedPosition<'a> {
-        SavedPosition::new(&mut self)
+impl Operator {
+    pub fn is_operator(c: char) -> Option<Operator> {
+        match c {
+            '+' => Some(Operator::Plus),
+            '-' => Some(Operator::Minus),
+            '*' => Some(Operator::Times),
+            '/' => Some(Operator::Divide),
+            '^' => Some(Operator::Raise),
+            '=' => Some(Operator::Equals),
+            _ => None
+        }
     }
-    pub fn eat_whitespace(&mut self) {
-        while let Some(c) = self.peek() {
-            if c != ' ' {
+}
+impl<'a> Iterator<'a> for Scanner<'a> {
+    type Item = Token<'a>;
+    fn next(&mut self) -> Option<Token<'a>> {
+        self.eat_whitespace();
+        let content = self.content();
+        let single_char: &'a str = content[..content.char_indices().next()?.1];
+        let start = self.position;
+        if let Some(sep) = Separator::is_separator(content.chars().next()?) {
+            self.position += single_char.len();
+            return Some(Token {start, content: &single_char, token_type: TokenType::Separator(sep)})
+        }
+        if let Some(operator) = Operator::is_operator(content.chars().next()?) {
+            self.position += single_char.len();
+            return Some(Token {start, content: &single_char, token_type: TokenType::Operator(operator)})
+        }
+        let mut end = content.len();
+        for (i, c) in content.char_indices() {
+            if c == ' ' || Separator::is_separator(c).is_some() || Operator::is_operator(c).is_some() {
+                end = i;
                 break;
             }
-            self.next();
         }
+        self.position = end;
+        Some(Token{start, content: &content[..end], token_type: TokenType::Word})
     }
-    pub fn peek(&self) -> Option<char> {
-        self.as_str().chars().next()
+}
+impl<'a> Scanner {
+    fn content(&self) -> &'a str {
+        &self.total_input[&self.position..]
     }
-    pub fn as_str(&self) -> &'a str {
-        &self.total_input[self.position..]
-    }
-    pub fn next(&mut self) -> Option<char> {
-        let c = self.as_str().chars().next()?;
-        self.position+=1;
-        Some(c)
-    }
-    pub fn maybe(&mut self, c: char) -> bool {
-        self.peek().map_or(false, |p| c==p)
-    }
-    pub fn only_if(&mut self, c: char) -> Option<char> {
-        if self.peek()? == 'c' {
-            Some(c)
-        } else {
-            None
-        }
-    }
-    pub fn next_digit(&mut self) -> Option<u32> {
-        self.peek()?.to_digit(10)
-    }
-    pub fn next_digits(&mut self) -> Option<u32> {
-        let mut number = self.next_digit()?;
-        let mut position: u32 = 1;
-        while let Some(digit) = self.next_digit() {
-            number += 10u32.pow(position) * digit;
-            position+=1;
-        }
-        Some(number)
-    }
-    pub fn next_operator(&mut self) -> Option<char> {
-        let mut pos = self.position();
-        self.eat_whitespace();
-
-        pos.on_option(match self.peek()? {
-            '+' => Some('+'),
-            _ => None
-        })
-    }
-    pub fn next_int(&mut self) -> Option<i32> {
-        let mut pos = self.position();
-        let result: i32 = if self.maybe('-') {-1} else {1} * (self.next_digits()? as i32);
-        pos.ok();
-        Some(result)
-    }
-    pub fn next_float(&mut self) -> Option<f64> {
-        let mut pos = self.position();
-        let is_negative = self.maybe('-');
-
-        match self.next_digits() {
-            Some(_) => {
-                self.only_if('.')?;
-                let _ = self.next_digits(); //ignore option
+    fn eat_whitespace(&mut self) {
+        for c in self.content().chars() {
+            if c == ' ' {
+                return
             }
-            None => {
-                self.only_if('.')?;
-                self.next_digits()?;
-            }
+            self.position += c.len_utf8();
         }
-        Some(pos.collect().parse().unwrap())
-
     }
 
 }
