@@ -44,18 +44,18 @@ impl fmt::Display for Unit {
 #[derive(PartialEq, Eq, Clone, Debug, Default)]
 pub struct UnitWithExponent {
     unit: Unit,
-    power10: i32,
+    multiplier: i32,
 }
 
 impl UnitWithExponent {
-    pub fn new(unit: Unit, power10: i32) -> UnitWithExponent {
+    pub fn new(unit: Unit, multiplier: i32) -> UnitWithExponent {
         UnitWithExponent {
             unit,
-            power10,
+            multiplier: multiplier,
         }
     }
-    pub fn raise_scalar_exponent(mut self, power10: i32) -> UnitWithExponent {
-        self.power10 += power10;
+    pub fn raise_scalar_exponent(mut self, multiplier: i32) -> UnitWithExponent {
+        self.multiplier += multiplier;
         self
     }
 }
@@ -128,7 +128,7 @@ impl std::str::FromStr for UnitWithExponent {
                     Some(result) => result,
                     None => break Err(UnrecognizedUnit(current_pos, part_end_index))
                 };
-                exponent_scalar += ue.power10; //TODO: check if scalar needs to be raised to a power too
+                exponent_scalar += ue.multiplier; //TODO: check if scalar needs to be raised to a power too
                 ue.unit.raise(raise_power)
             };
             out_unit = match last_operator {
@@ -138,7 +138,7 @@ impl std::str::FromStr for UnitWithExponent {
             };
             last_operator = char_at(current_pos);
             if last_operator == ' ' {
-                break Ok(UnitWithExponent { unit, power10: exponent_scalar });
+                break Ok(UnitWithExponent { unit, multiplier: exponent_scalar });
             }
             current_pos = part_end_index;
         }
@@ -149,7 +149,7 @@ impl UnitWithExponent {
     pub fn make_value(&self, value: f64) -> Value {
         Value {
             unit: self.unit.clone(),
-            number: value * 10f64.powi(self.power10),
+            number: value * 10f64.powi(self.multiplier),
         }
     }
 

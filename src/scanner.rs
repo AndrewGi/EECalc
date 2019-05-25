@@ -22,11 +22,15 @@ pub enum Separator {
     Colon,
     OpenParentheses,
     CloseParentheses,
+    EOL,
 }
+#[derive(Clone)]
 pub enum TokenType {
     Word,
     Operator(Operator),
-    Separator(Separator)
+    Separator(Separator),
+    Int(i64),
+    Float(f64),
 }
 pub struct Token<'a> {
     content: &'a str,
@@ -58,6 +62,14 @@ impl Operator {
         }
     }
 }
+impl<'a> Token<'a> {
+    pub fn token_type(&self) -> TokenType {
+        self.token_type.clone()
+    }
+    pub fn as_str(&self) -> &'a str {
+        self.content
+    }
+}
 impl<'a> Iterator<'a> for Scanner<'a> {
     type Item = Token<'a>;
     fn next(&mut self) -> Option<Token<'a>> {
@@ -81,7 +93,14 @@ impl<'a> Iterator<'a> for Scanner<'a> {
             }
         }
         self.position = end;
-        Some(Token{start, content: &content[..end], token_type: TokenType::Word})
+        let word = &content[..end];
+        if let Some(i) = word.parse::<i64>() {
+            return Some(Token{start, content: word, token_type: TokenType::Int(i)})
+        }
+        if let Some(f) = word.parse::<f64>() {
+            return Some(Token{start, content: word, token_type: TokenType::Float(f)})
+        }
+        Some(Token{start, content: word, token_type: TokenType::Word})
     }
 }
 impl<'a> Scanner {
