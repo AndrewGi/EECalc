@@ -60,7 +60,7 @@ impl<'a> Parser<'a> {
 			TokenType::Operator(Operator::Minus) => Negate,
 			_ => return Some(None)
 		};
-		let operand = Box::new(self_clone.next_node()??);
+		let operand = Box::new(self_clone.next_node()?);
 		self.clone_from(&self_clone);
 		Ok(Some(UnaryOperation(unary_op, operand)))
 	}
