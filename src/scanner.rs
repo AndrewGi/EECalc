@@ -1,6 +1,3 @@
-use crate::scanner::Separator::{OpenParentheses, CloseParentheses, Comma, Period, Colon};
-use std::path::is_separator;
-use crate::scanner::Operator::Plus;
 
 #[derive(Debug, Clone)]
 pub struct Scanner<'a> {
@@ -8,6 +5,7 @@ pub struct Scanner<'a> {
     position: usize
 }
 
+#[derive(Debug, Clone)]
 pub enum Operator {
     Plus,
     Minus,
@@ -16,6 +14,7 @@ pub enum Operator {
     Raise,
     Equals,
 }
+#[derive(Debug, Clone)]
 pub enum Separator {
     Comma,
     Period,
@@ -24,7 +23,7 @@ pub enum Separator {
     CloseParentheses,
     EOL,
 }
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum TokenType {
     Word,
     Operator(Operator),
@@ -32,6 +31,7 @@ pub enum TokenType {
     Int(i64),
     Float(f64),
 }
+#[derive(Debug, Clone)]
 pub struct Token<'a> {
     content: &'a str,
     start: usize,
@@ -40,11 +40,11 @@ pub struct Token<'a> {
 impl Separator {
     pub fn is_separator(c: char) -> Option<Separator> {
         match c {
-            '(' => Some(OpenParentheses),
-            ')' => Some(CloseParentheses),
-            ',' => Some(Comma),
-            '.' => Some(Period),
-            ':' => Some(Colon),
+            '(' => Some(Separator::OpenParentheses),
+            ')' => Some(Separator::CloseParentheses),
+            ',' => Some(Separator::Comma),
+            '.' => Some(Separator::Period),
+            ':' => Some(Separator::Colon),
             _ => None
         }
     }
@@ -70,12 +70,12 @@ impl<'a> Token<'a> {
         self.content
     }
 }
-impl<'a> Iterator<'a> for Scanner<'a> {
+impl<'a> Iterator for Scanner<'a> {
     type Item = Token<'a>;
     fn next(&mut self) -> Option<Token<'a>> {
         self.eat_whitespace();
         let content = self.content();
-        let single_char: &'a str = content[..content.char_indices().next()?.1];
+        let single_char: &'a str = &content[..content.char_indices().next()?.0];
         let start = self.position;
         if let Some(sep) = Separator::is_separator(content.chars().next()?) {
             self.position += single_char.len();
@@ -94,18 +94,21 @@ impl<'a> Iterator<'a> for Scanner<'a> {
         }
         self.position = end;
         let word = &content[..end];
-        if let Some(i) = word.parse::<i64>() {
+        if let Ok(i) = word.parse::<i64>() {
             return Some(Token{start, content: word, token_type: TokenType::Int(i)})
         }
-        if let Some(f) = word.parse::<f64>() {
+        if let Ok(f) = word.parse::<f64>() {
             return Some(Token{start, content: word, token_type: TokenType::Float(f)})
         }
         Some(Token{start, content: word, token_type: TokenType::Word})
     }
 }
-impl<'a> Scanner {
+impl<'a> Scanner<'a> {
+    pub fn new(s: &str) -> Scanner {
+        Scanner{total_input: s, position: 0}
+    }
     fn content(&self) -> &'a str {
-        &self.total_input[&self.position..]
+        &self.total_input[self.position..]
     }
     fn eat_whitespace(&mut self) {
         for c in self.content().chars() {
