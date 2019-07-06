@@ -34,7 +34,6 @@ pub enum TokenType {
 #[derive(Debug, Clone)]
 pub struct Token<'a> {
     content: &'a str,
-    start: usize,
     token_type: TokenType
 }
 impl Separator {
@@ -69,6 +68,15 @@ impl<'a> Token<'a> {
     pub fn as_str(&self) -> &'a str {
         self.content
     }
+    pub fn spanning_content(&self, other: &Self) -> &'a str{
+        let start = self.as_str().as_ptr() as usize;
+        let end = other.as_str().as_ptr() as usize;
+        assert!(start<end);
+        let size = (end-start)+other.as_str().len();
+        unsafe {
+            std::str::from_utf8_unchecked(std::slice::from_raw_parts(self.as_str().as_ptr(), size))
+        }
+    }
 }
 impl<'a> Iterator for Scanner<'a> {
     type Item = Token<'a>;
@@ -76,14 +84,13 @@ impl<'a> Iterator for Scanner<'a> {
         self.eat_whitespace();
         let content = self.content();
         let single_char: &'a str = &content[..content.char_indices().next()?.0];
-        let start = self.position;
         if let Some(sep) = Separator::is_separator(content.chars().next()?) {
             self.position += single_char.len();
-            return Some(Token {start, content: &single_char, token_type: TokenType::Separator(sep)})
+            return Some(Token {content: &single_char, token_type: TokenType::Separator(sep)})
         }
         if let Some(operator) = Operator::is_operator(content.chars().next()?) {
             self.position += single_char.len();
-            return Some(Token {start, content: &single_char, token_type: TokenType::Operator(operator)})
+            return Some(Token {content: &single_char, token_type: TokenType::Operator(operator)})
         }
         let mut end = content.len();
         for (i, c) in content.char_indices() {
@@ -95,17 +102,20 @@ impl<'a> Iterator for Scanner<'a> {
         self.position = end;
         let word = &content[..end];
         if let Ok(i) = word.parse::<i64>() {
-            return Some(Token{start, content: word, token_type: TokenType::Int(i)})
+            return Some(Token{content: word, token_type: TokenType::Int(i)})
         }
         if let Ok(f) = word.parse::<f64>() {
-            return Some(Token{start, content: word, token_type: TokenType::Float(f)})
+            return Some(Token{content: word, token_type: TokenType::Float(f)})
         }
-        Some(Token{start, content: word, token_type: TokenType::Word})
+        Some(Token{content: word, token_type: TokenType::Word})
     }
 }
 impl<'a> Scanner<'a> {
     pub fn new(s: &str) -> Scanner {
         Scanner{total_input: s, position: 0}
+    }
+    pub fn is_done(&self) -> bool {
+        self.content().is_empty()
     }
     fn content(&self) -> &'a str {
         &self.total_input[self.position..]

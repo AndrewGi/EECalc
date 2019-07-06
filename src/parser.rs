@@ -1,96 +1,57 @@
+use crate::scanner::Scanner;
+use crate::scanner::Token;
+use crate::scanner::TokenType;
+use std::iter::Peekable;
+use crate::si::UnitWithExponent;
+use crate::parser::ParserError::ExpectedNumber;
 
-use crate::scanner;
-
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Parser<'a> {
-    scanner: std::iter::Peekable<scanner::Scanner<'a>>
+	scanner: Peekable<Scanner<'a>>
 }
-pub enum ParserError<'a> {
-	ExpectedOperator(&'a scanner::Token<'a>),
-	ExpectedSeparator(scanner::Separator, &'a scanner::Token<'a>),
-	EarlyEOL
+#[derive(Clone)]
+pub struct ParserCursor<'a> {
+	parent: &'a mut Parser<'a>,
+	copy: Parser<'a>
 }
-pub enum UnaryOperator {
-	Negate
+#[derive(Clone)]
+pub enum ParserToken {
+	UnitExponent(UnitWithExponent),
+	BinaryOperator(super::scanner::Operator),
+	UnaryOperator(super::scanner::Operator),
+	Parentheses(Vec<ParserToken>),
 }
-pub enum InfixOperator {
-	Plus,
-	Minus,
-	Times,
-	Divide,
-	Raise
+pub enum ParserError {
+	ExpectedScanner,
+	UnexpectedOperator(super::scanner::Operator),
+	ExpectedNumber,
 }
-pub enum Number {
-	Float(f64),
-	Int(i64)
-}
-pub enum Node<'a> {
-	Number(Number),
-	Variable(&'a str),
-	Function(&'a str,Vec<Node<'a>>),
-	UnaryOperation(UnaryOperator, Box<Node<'a>>),
-	InfixOperation(InfixOperator, Box<Node<'a>>, Box<Node<'a>>),
-	Scope(Box<Node<'a>>)
-}
-type ParserResult<'a> = Result<Node<'a>, ParserError<'a>>;
-impl InfixOperator {
-	pub fn precedence(&self) -> i32 {
-		match *self {
-			InfixOperator::Minus | InfixOperator::Plus => 3,
-			InfixOperator::Divide | InfixOperator::Times => 2,
-			InfixOperator::Raise => 1
-		}
-	}
-}
-macro_rules! return_if_some {
-( $($e:expr),+ ) => { {
-   		$(
-        	match $e {
-            	Some(x) => return Some(x),
-            	None => ()
-        	};
-        )+
-    }
-}
-}
-impl<'a> Iterator for Parser<'a> {
-	type Item = ParserResult<'a>;
-	fn next(&mut self) -> Option<ParserResult<'a>> {
-		return_if_some!(
-			self.next_prefix_unary(),
-			self.next_parentheses(),
-			self.next_expression()
-		);
-		None
-	}
-
-}
-const HIGHEST_PRECEDENCE: i32 = 4;
 impl<'a> Parser<'a> {
-	pub fn from_scanner(scanner: scanner::Scanner<'a>) -> Parser<'a> {
-		Parser { scanner: scanner.peekable() }
+	pub fn new(scanner: Peekable<Scanner<'a>>) -> Parser<'a> {
+		Parser { scanner }
 	}
-
-	fn next_prefix_unary(&mut self) -> Option<ParserResult<'a>> {
-		None
-	}
-	fn next_parentheses(&mut self) -> Option<ParserResult<'a>> {
-		match self.scanner.peek()?.token_type() {
-			scanner::TokenType::Separator(scanner::Separator::OpenParentheses) => (),
-			_ => return None
-		};
-		let mut clone = self.clone();
-		let mut next = match clone.next()? {
-			Ok(node) => node,
-			Err(err) => return Some(Err(err))
-		};
-		match clone.scanner.next()?.token_type() {
-			scanner::TokenType::Separator(scanner::Separator::OpenParentheses) => Some(Ok(Node::Scope(Box::new(next)))),
-			_ => None
+	pub fn cursor(&mut self) -> ParserCursor<'a> {
+		ParserCursor {
+			parent: self,
+			copy: self.clone(),
 		}
-
 	}
-	fn next_expression(&mut self) -> Option<ParserResult<'a>> {
-		None
+}
+impl<'a> ParserCursor<'a> {
+
+	pub fn apply(self) {
+		*self.parent = self.copy
+	}
+	fn scanner(&mut self) -> &mut Peekable<Scanner<'_>> {
+		&mut self.parent.scanner
+	}
+	pub fn next_int(&mut self) -> Result<i64, ParserError> {
+		let mut clone = self.clone();
+		let start = clone.scanner().peek().ok_or(ExpectedNumber)?;
+
+		loop {
+
+
+		}
 	}
 }

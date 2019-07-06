@@ -51,7 +51,7 @@ impl UnitWithExponent {
     pub fn new(unit: Unit, multiplier: i32) -> UnitWithExponent {
         UnitWithExponent {
             unit,
-            multiplier: multiplier,
+            multiplier,
         }
     }
     pub fn raise_scalar_exponent(mut self, multiplier: i32) -> UnitWithExponent {
@@ -68,22 +68,26 @@ pub struct UnitRules {
 
 impl Default for UnitRules {
     fn default() -> UnitRules {
-        let mut r = UnitRules::new();
-        let scalar = Unit { meter: 0, kilogram: 0, second: 0, ampere: 0, kelvin: 0, mole: 0, candela: 0 };
-        r.new_unit("scalar", "_", scalar);
-        r.new_unit("meter", "m", Unit { meter: 1, ..scalar });
-        r.new_unit("kilogram", "kg", Unit { kilogram: 1, ..scalar });
-        r.new_unit("second", "s", Unit { second: 1, ..scalar });
-        r.new_unit("ampere", "a", Unit { ampere: 1, ..scalar });
-        r.new_unit("kelvin", "k", Unit { kelvin: 1, ..scalar });
-        r.new_unit("mole", "mol", Unit { mole: 1, ..scalar });
-        r.new_unit("candela", "cd", Unit { candela: 1, ..scalar });
-        r.new_unit_rule("gram", "g", "mkg");
-        r.new_unit_rule("newton", "n", "kg*m/s^2");
-        r.new_unit_rule("joule", "j", "n*m");
-        r.new_unit_rule("watt", "w", "j*s");
-        r.new_unit_rule("volt", "v", "w/a");
-        r
+        lazy_static! {
+        static default: UnitRules = {
+            let mut r = UnitRules::new();
+            let scalar = Unit { meter: 0, kilogram: 0, second: 0, ampere: 0, kelvin: 0, mole: 0, candela: 0 };
+            r.new_unit("scalar", "_", scalar);
+            r.new_unit("meter", "m", Unit { meter: 1, ..scalar });
+            r.new_unit("kilogram", "kg", Unit { kilogram: 1, ..scalar });
+            r.new_unit("second", "s", Unit { second: 1, ..scalar });
+            r.new_unit("ampere", "a", Unit { ampere: 1, ..scalar });
+            r.new_unit("kelvin", "k", Unit { kelvin: 1, ..scalar });
+            r.new_unit("mole", "mol", Unit { mole: 1, ..scalar });
+            r.new_unit("candela", "cd", Unit { candela: 1, ..scalar });
+            r.new_unit_rule("gram", "g", "mkg");
+            r.new_unit_rule("newton", "n", "kg*m/s^2");
+            r.new_unit_rule("joule", "j", "n*m");
+            r.new_unit_rule("watt", "w", "j*s");
+            r.new_unit_rule("volt", "v", "w/a");
+            r
+        }
+        }
     }
 }
 #[derive(Debug)]
@@ -96,10 +100,16 @@ pub enum ParseUnitError {
 impl std::str::FromStr for UnitWithExponent {
     type Err = ParseUnitError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        /**
+            expects 's' to be just the unit with an exponent. Any more and it will return an error
+            ex:
+            '10ga^5*mg' Ok
+            '10ga^5*mg*5' Err! Constant are parsed by the ast tree
+        */
         let is_operator = |c: char| c == '*' || c == '/';
         let mut out_unit = Unit::default();
         let mut current_pos = 0;
-        let mut last_operator = '*';
+        let mut prev_operator = '*';
         let mut exponent_scalar = 0;
         loop {
             let unit_end_index = s[current_pos..].find(is_operator).unwrap_or_else(|| s.len());
@@ -124,20 +134,20 @@ impl std::str::FromStr for UnitWithExponent {
             };
 
             let unit = {
-                let ue = match UnitWithExponent::from_str_single(&unit_s) {
+                let ue = match UnitWithExponent::just_unit_from_str(&unit_s) {
                     Some(result) => result,
                     None => break Err(UnrecognizedUnit(current_pos, part_end_index))
                 };
                 exponent_scalar += ue.multiplier; //TODO: check if scalar needs to be raised to a power too
                 ue.unit.raise(raise_power)
             };
-            out_unit = match last_operator {
+            out_unit = match prev_operator {
                 '*' => &out_unit * &unit,
                 '/' => &out_unit / &unit,
                 _ => panic!("unhandled unit operator")
             };
-            last_operator = char_at(current_pos);
-            if last_operator == ' ' {
+            prev_operator = char_at(current_pos);
+            if prev_operator == ' ' {
                 break Ok(UnitWithExponent { unit, multiplier: exponent_scalar });
             }
             current_pos = part_end_index;
@@ -153,18 +163,7 @@ impl UnitWithExponent {
         }
     }
 
-    fn from_str_single(s: &str) -> Option<UnitWithExponent> {
-        if let Some((_, ue)) = GLOBAL_RULES.shorthand_hm.get(&s) {
-            Some(ue.clone())
-        } else {
-            if let Some((_, ue)) = GLOBAL_RULES.shorthand_hm.get(&s[1..]) {
-                let prefix = Unit::get_prefix(s.chars().next()?)?;
-                Some(ue.clone().raise_scalar_exponent(prefix))
-            } else {
-                None
-            }
-        }
-    }
+
 }
 
 impl UnitRules {
@@ -183,6 +182,18 @@ impl UnitRules {
 
     pub fn new_unit_rule(&mut self, longhand: &'static str, shorthand: &'static str, rule: &str) {
         self.new_unit_exponent(longhand, shorthand, rule.parse().ok().unwrap())
+    }
+    pub fn prefix_unit_from_str(s: &str) -> Option<UnitWithExponent> {
+        if let Some((_, ue)) = GLOBAL_RULES.shorthand_hm.get(&s) {
+            Some(ue.clone())
+        } else {
+            if let Some((_, ue)) = GLOBAL_RULES.shorthand_hm.get(&s[1..]) {
+                let prefix = Unit::get_prefix(s.chars().next()?)?;
+                Some(ue.clone().raise_scalar_exponent(prefix))
+            } else {
+                None
+            }
+        }
     }
 }
 
@@ -346,4 +357,13 @@ impl std::ops::Mul<f64> for Value {
         self
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
 
+    #[test]
+    fn test1() -> Result<(), ParseUnitError> {
+        let ue: UnitWithExponent = "10a".parse()?;
+        Ok(())
+    }
+}
